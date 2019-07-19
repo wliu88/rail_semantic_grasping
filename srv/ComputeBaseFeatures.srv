@@ -1,0 +1,4 @@
+rail_semantic_grasping/SemanticObjectList semantic_objects
+---
+# a list of base features, one for each grasp on the object
+rail_semantic_grasping/BaseFeatures[] base_features_list

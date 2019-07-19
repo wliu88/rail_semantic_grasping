@@ -1,0 +1,5 @@
+geometry_msgs/Pose grasp_pose
+string grasp_part_affordance
+string grasp_part_material
+int32 score
+string task
