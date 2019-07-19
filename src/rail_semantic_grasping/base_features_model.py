@@ -17,6 +17,7 @@ from sensor_msgs.msg import Image, PointCloud2
 # from rail_part_affordance_detection.msg import ObjectPartAffordance
 # from rail_part_affordance_detection.srv import DetectAffordances, DetectAffordancesResponse
 from visualization_msgs.msg import Marker, MarkerArray
+from rail_semantic_grasping.srv import ComputeBaseFeatures
 
 
 class BaseFeaturesModel:
@@ -24,7 +25,8 @@ class BaseFeaturesModel:
 
     def __init__(self):
 
-        self.semantic_objects_topic = rospy.get_param("~semantic_objects_with_grasps_topic")
+        self.compute_base_features_topic = rospy.get_param("~compute_base_features_topic",
+                                                           "/base_features_computation_node/compute_base_features")
 
         self.data_dir = rospy.get_param("~data_dir_path",
                                         os.path.join(rospkg.RosPack().get_path("rail_semantic_grasping"), "data"))
@@ -39,8 +41,8 @@ class BaseFeaturesModel:
             exit()
 
         # Set up service client
-        rospy.wait_for_service("")
-        self.compute_base_features = rospy.ServiceProxy("", ComputeBaseFeatures)
+        rospy.wait_for_service(self.compute_base_features_topic)
+        self.compute_base_features = rospy.ServiceProxy(self.compute_base_features_topic, ComputeBaseFeatures)
 
         # Listen to semantic objects with grasps
         # self.semantic_objects_sub = rospy.Subscriber(self.semantic_objects_topic,
