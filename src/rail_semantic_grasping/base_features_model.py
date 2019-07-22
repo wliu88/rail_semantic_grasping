@@ -75,6 +75,20 @@ class BaseFeaturesModel:
                 if not semantic_objects.objects:
                     continue
 
+                # visualize semantic object
+                markers = MarkerArray()
+                marker = Marker()
+                # assume there is only one object in the list
+                semantic_object = semantic_objects.objects[0]
+                marker = semantic_object.marker
+                for semantic_part in semantic_object.parts:
+                    markers.markers.append(semantic_part.marker)
+                    markers.markers.append(semantic_part.text_marker)
+                self.markers_pub.publish(markers)
+                self.color_image_pub.publish(semantic_object.color_image)
+                self.pc_pub.publish(semantic_object.point_cloud)
+                self.marker_pub.publish(marker)
+
                 # compute base features
                 try:
                     self.compute_base_features(semantic_objects)

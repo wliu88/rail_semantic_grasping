@@ -38,6 +38,7 @@
 #include <pcl/common/common.h>
 #include <pcl/filters/conditional_removal.h>
 #include <pcl/filters/extract_indices.h>
+#include<pcl/features/esf.h>
 //#include <pcl/filters/passthrough.h>
 //#include <pcl/filters/project_inliers.h>
 #include <pcl/filters/voxel_grid.h>
@@ -61,6 +62,7 @@
 #include <fstream>
 #include <string>
 #include <map>
+#include <algorithm>    // std::sort
 
 namespace rail
 {
@@ -84,10 +86,18 @@ private:
   bool computeBaseFeaturesCallback(rail_semantic_grasping::ComputeBaseFeaturesRequest &req,
                                    rail_semantic_grasping::ComputeBaseFeaturesResponse &res);
 
+  bool debug;
+
+  int cylinder_segmentation_normal_k_, shape_segmentation_max_iteration_;
+  double cylinder_segmentation_normal_distance_weight_, cylinder_segmentation_distance_threshold_ratio_,
+         sphere_segmentation_distance_threshold_, sphere_segmentation_probability_;
+
   ros::ServiceServer compute_base_features_srv_;
 
   /*! The global and private ROS node handles. */
   ros::NodeHandle node_, private_node_;
+
+  ros::Publisher debug_pc_pub_, debug_pc_pub_2_, debug_pc_pub_3_, debug_pose_pub_;
 
   /*! Main transform listener. */
   tf::TransformListener tf_;
