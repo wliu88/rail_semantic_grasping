@@ -29,11 +29,14 @@ find_package(catkin REQUIRED COMPONENTS
 
   rail_manipulation_msgs
   rail_part_affordance_detection
+
+        cv_bridge
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(Boost REQUIRED COMPONENTS thread)
+find_package(OpenCV)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -144,6 +147,7 @@ catkin_package(
 include_directories(include
   ${catkin_INCLUDE_DIRS}
   ${boost_INCLUDE_DIRS}
+        ${OpenCV_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -181,7 +185,7 @@ add_dependencies(base_features_computation_node ${PROJECT_NAME}_generate_message
 #   ${catkin_LIBRARIES}
 # )
 target_link_libraries(object_semantic_segmentation_node ${boost_LIBRARIES} ${catkin_LIBRARIES})
-target_link_libraries(base_features_computation_node ${boost_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(base_features_computation_node ${boost_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 #############
 ## Install ##

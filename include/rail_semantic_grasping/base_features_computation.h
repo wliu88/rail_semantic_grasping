@@ -52,6 +52,15 @@
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/features/normal_3d.h>
 
+// OPENCV
+#include <opencv2/core/version.hpp>
+#include <cv_bridge/cv_bridge.h>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/xfeatures2d.hpp>
+#include <opencv2/features2d/features2d.hpp>
+#include <opencv2/xfeatures2d/nonfree.hpp>
+
 // YAML
 //#include <yaml-cpp/yaml.h>
 
@@ -72,6 +81,7 @@ namespace semantic_grasping
 class BaseFeaturesComputation
 {
 public:
+
   /*!
    * \brief Create a Segmenter and associated ROS information.
    *
@@ -97,7 +107,7 @@ private:
   /*! The global and private ROS node handles. */
   ros::NodeHandle node_, private_node_;
 
-  ros::Publisher debug_pc_pub_, debug_pc_pub_2_, debug_pc_pub_3_, debug_pose_pub_;
+  ros::Publisher debug_pc_pub_, debug_pc_pub_2_, debug_pc_pub_3_, debug_pose_pub_, debug_pose_pub_2_, debug_img_pub_;
 
   /*! Main transform listener. */
   tf::TransformListener tf_;

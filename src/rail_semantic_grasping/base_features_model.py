@@ -11,6 +11,9 @@ import numpy as np
 import rospy
 import rospkg
 
+import cv2
+import cv_bridge
+
 from rail_semantic_grasping.msg import SemanticObjectList, SemanticGrasp
 from geometry_msgs.msg import Pose, Point, PoseStamped
 from sensor_msgs.msg import Image, PointCloud2
@@ -94,3 +97,9 @@ class BaseFeaturesModel:
                     self.compute_base_features(semantic_objects)
                 except rospy.ServiceException:
                         print("Service call failed")
+
+                # compute other base features here
+                semantic_object = semantic_objects.objects[0]
+
+                for grasp in semantic_object.labeled_grasps:
+                    pass
