@@ -3,13 +3,10 @@
 using namespace std;
 using namespace rail::semantic_grasping;
 
-static const std::string OPENCV_WINDOW = "Image window";
-
-BaseFeaturesComputation::BaseFeaturesComputation() : private_node_("~"), tf2_(tf_buffer_), debug(true)
+BaseFeaturesComputation::BaseFeaturesComputation() : private_node_("~"), tf2_(tf_buffer_), debug_(true)
 {
     // check opencv version. Since indigo, the default is 3.
     ROS_INFO("Computation of image features is based on OpenCV %d", CV_MAJOR_VERSION);
-    cv::namedWindow(OPENCV_WINDOW);
 
     private_node_.param("shape_segmentation_max_iteration", shape_segmentation_max_iteration_, 10000);
     private_node_.param("cylinder_segmentation_normal_k", cylinder_segmentation_normal_k_, 200);
@@ -43,6 +40,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
     pcl::fromROSMsg(semantic_object.point_cloud, *object_pc);
 
+    // --------------------------------------------------------
     // 1.1 Elongatedness: ratio of minor axes to the major axis
     // width: x axis; depth: y axis; height: z axis
     ROS_INFO("Object width, height, and depth: %f, %f, %f", semantic_object.width, semantic_object.height,
@@ -58,6 +56,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     // computed feature
     vector<double> elongatedness = {axes[1].first / axes[2].first, axes[0].first / axes[2].first};
 
+    // --------------------------------------------------------
     // 1.2 Shape primitives: cylinder, sphere
     // get dimension of the segmented object
     Eigen::Vector4f min_pt, max_pt;
@@ -95,7 +94,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     segmenter.segment(*cylinder_indices, *coefficients_cylinder);
     ROS_INFO("Fitting to cylinder, inliers %zu, total %zu", cylinder_indices->indices.size(), object_pc->size());
 
-    if (debug)
+    if (debug_)
     {
         // extract cylinder pc
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr cylinder_pc(new pcl::PointCloud<pcl::PointXYZRGB> ());
@@ -124,7 +123,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     sphere_segmenter.segment(*sphere_indices, *coefficients_sphere);
     ROS_INFO("Fitting to sphere, inliers %zu, total %zu", sphere_indices->indices.size(), object_pc->size());
 
-    if (debug)
+    if (debug_)
     {
         // extract sphere pc
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr sphere_pc(new pcl::PointCloud<pcl::PointXYZRGB> ());
@@ -140,12 +139,14 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     double spherical_resemblance = sphere_indices->indices.size() * 1.0 / object_pc->size();
     double cylindrical_resemblance = cylinder_indices->indices.size() * 1.0 / object_pc->size();
 
+    // --------------------------------------------------------
     // 1.3 Volume
     ROS_INFO("Bounding volume frame %s", semantic_object.bounding_volume.pose.header.frame_id.c_str());
     //debug_pose_pub_.publish(semantic_object.bounding_volume.pose);
     double volume = semantic_object.bounding_volume.dimensions.x * semantic_object.bounding_volume.dimensions.y *
             semantic_object.bounding_volume.dimensions.z * 100 * 100 * 100;    // unit: meter^2
 
+    // --------------------------------------------------------
     // 1.4 Global shape descriptor
     pcl::ESFEstimation<pcl::PointXYZRGB, pcl::ESFSignature640> esf_extractor;
     esf_extractor.setInputCloud(object_pc);
@@ -159,6 +160,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
         esf_descriptor.push_back(esf_signature->points[0].histogram[ei]);
     }
 
+    // --------------------------------------------------------
     // 1.5 Opening
     double opening = 0.0;
     if (semantic_object.name == "cup" or semantic_object.name == "bowl"
@@ -173,6 +175,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     {
         rail_semantic_grasping::SemanticGrasp grasp = semantic_object.labeled_grasps[gi];
 
+        // --------------------------------------------------------
         // 2.1 Relative grasping position: (relative position in axis / axis) for each axis
         // The order is from the longest axis to the shortest axis
         // For each value, should be between [-0.5, 0.5] unless the grasp is outside of the object
@@ -191,6 +194,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
         ROS_INFO("Relative grasp position is %f, %f, %f", relative_grasping_position[0], relative_grasping_position[1],
                  relative_grasping_position[2]);
 
+        // --------------------------------------------------------
         // 2.2 Opening
         double opening_grasp_angle;
         double opening_grasp_distance;
@@ -224,6 +228,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
             ROS_INFO("Distance from grasp to opening is %f", opening_grasp_distance);
         }
 
+        // --------------------------------------------------------
         // 2.3 locate image region that the grasp is near to
         // find distance between the position of the grasp and the point cloud of the object
         pcl::PointXYZRGB grasp_position;
@@ -237,42 +242,17 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
         vector<float> sqr_dsts;
         kdtree.nearestKSearch(grasp_position, 1, indices, sqr_dsts);
 
-        // the image indices of the closest point
-        int grasp_image_index = semantic_object.image_indices[indices[0]];
-        // ROS_INFO("closest point pc index %d / %zu", indices[0], object_pc->points.size());
-        // ROS_INFO("closest point image index %d", grasp_image_index);
-        // ROS_INFO("Sqr Distance: %f", sqr_dsts[0]);
-
-        // create object rgb image from the whole rgb image
+        // create grasp rgb image from the whole rgb image
         sensor_msgs::ImagePtr rbg_img (new sensor_msgs::Image);
         *rbg_img = semantic_object.color_image;
-        // determine the bounds of the cluster
-        int row_min = numeric_limits<int>::max();
-        int row_max = numeric_limits<int>::min();
-        int col_min = numeric_limits<int>::max();
-        int col_max = numeric_limits<int>::min();
-        for (size_t ii = 0; ii < semantic_object.image_indices.size(); ii++)
-        {
-            // calculate row and column of this point
-            int row = semantic_object.image_indices[ii] / semantic_object.color_image.width;
-            int col = semantic_object.image_indices[ii] - (row * semantic_object.color_image.width);
-
-            if (row < row_min)
-            {
-                row_min = row;
-            } else if (row > row_max)
-            {
-                row_max = row;
-            }
-            if (col < col_min)
-            {
-                col_min = col;
-            } else if (col > col_max)
-            {
-                col_max = col;
-            }
-        }
-
+        int grasp_full_image_index = semantic_object.image_indices[indices[0]];
+        // calculate row and column of this point
+        int row = grasp_full_image_index / semantic_object.color_image.width;
+        int col = grasp_full_image_index - (row * semantic_object.color_image.width);
+        int row_min = row - 10;
+        int row_max = row + 10;
+        int col_min = col - 10;
+        int col_max = col + 10;
         // create a ROS image
         sensor_msgs::Image msg;
         // set basic information
@@ -284,73 +264,317 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
         msg.step = 3 * msg.width;
         msg.data.resize(msg.step * msg.height);
         msg.encoding = sensor_msgs::image_encodings::BGR8;
-        // ROS_INFO("new image width %d, height %d", col_max - col_min, row_max - row_min);
-        // ROS_INFO("new image corner %d, %d", row_min, col_min);
-        // ROS_INFO("old img width %d, height %d", semantic_object.color_image.width, semantic_object.color_image.height);
-        // ROS_INFO("old img step %d", semantic_object.color_image.step);
-        // ROS_INFO("old img encoding %s", semantic_object.color_image.encoding.c_str());
-
-        // compute coordinate of the grasp center in the new img
-        int grasp_image_row = grasp_image_index / semantic_object.color_image.width;
-        int grasp_image_col = grasp_image_index - (grasp_image_row * semantic_object.color_image.width);
-        grasp_image_col = grasp_image_col - col_min;
-        grasp_image_row = grasp_image_row - row_min;
-        // ROS_INFO("closest point img row %d, col %d", grasp_image_row, grasp_image_col);
-
         // create the new img
         for (int h = 0; h < msg.height; h++)
         {
             for (int w = 0; w < msg.width; w++)
             {
                 int index = (msg.step * h) + (w * 3);
-                if (abs(h - grasp_image_row) < 5 and abs(w - grasp_image_col) < 5)
-                {
-                    msg.data[index] = 0;
-                    msg.data[index + 1] = 255;
-                    msg.data[index + 2] = 255;
-                } else
-                {
-                    // set RGB data
-                    int old_index = (semantic_object.color_image.step * (h + row_min)) + ((w + col_min) * 3);
-                    msg.data[index] = semantic_object.color_image.data[old_index + 2];
-                    msg.data[index + 1] = semantic_object.color_image.data[old_index + 1];
-                    msg.data[index + 2] = semantic_object.color_image.data[old_index];
-                }
+                // set RGB data
+                int old_index = (semantic_object.color_image.step * (h + row_min)) + ((w + col_min) * 3);
+                msg.data[index] = semantic_object.color_image.data[old_index + 2];
+                msg.data[index + 1] = semantic_object.color_image.data[old_index + 1];
+                msg.data[index + 2] = semantic_object.color_image.data[old_index];
             }
         }
         debug_img_pub_.publish(msg);
+
+
+// The following block of code create an image of the whole object and highlight the position of the grasp on the img.
+//        // the image indices of the closest point
+//        int grasp_image_index = semantic_object.image_indices[indices[0]];
+//        // ROS_INFO("closest point pc index %d / %zu", indices[0], object_pc->points.size());
+//        // ROS_INFO("closest point image index %d", grasp_image_index);
+//        // ROS_INFO("Sqr Distance: %f", sqr_dsts[0]);
+//        // create object rgb image from the whole rgb image
+//        sensor_msgs::ImagePtr rbg_img (new sensor_msgs::Image);
+//        *rbg_img = semantic_object.color_image;
+//        // determine the bounds of the cluster
+//        int row_min = numeric_limits<int>::max();
+//        int row_max = numeric_limits<int>::min();
+//        int col_min = numeric_limits<int>::max();
+//        int col_max = numeric_limits<int>::min();
+//        for (size_t ii = 0; ii < semantic_object.image_indices.size(); ii++)
+//        {
+//            // calculate row and column of this point
+//            int row = semantic_object.image_indices[ii] / semantic_object.color_image.width;
+//            int col = semantic_object.image_indices[ii] - (row * semantic_object.color_image.width);
+//
+//            if (row < row_min)
+//            {
+//                row_min = row;
+//            } else if (row > row_max)
+//            {
+//                row_max = row;
+//            }
+//            if (col < col_min)
+//            {
+//                col_min = col;
+//            } else if (col > col_max)
+//            {
+//                col_max = col;
+//            }
+//        }
+//
+//        // create a ROS image
+//        sensor_msgs::Image msg;
+//        // set basic information
+//        msg.header.frame_id = semantic_object.color_image.header.frame_id;
+//        msg.header.stamp = ros::Time::now();
+//        msg.width = col_max - col_min;
+//        msg.height = row_max - row_min;
+//        // RGB data
+//        msg.step = 3 * msg.width;
+//        msg.data.resize(msg.step * msg.height);
+//        msg.encoding = sensor_msgs::image_encodings::BGR8;
+//        // ROS_INFO("new image width %d, height %d", col_max - col_min, row_max - row_min);
+//        // ROS_INFO("new image corner %d, %d", row_min, col_min);
+//        // ROS_INFO("old img width %d, height %d", semantic_object.color_image.width, semantic_object.color_image.height);
+//        // ROS_INFO("old img step %d", semantic_object.color_image.step);
+//        // ROS_INFO("old img encoding %s", semantic_object.color_image.encoding.c_str());
+//
+//        // compute coordinate of the grasp center in the new img
+//        int grasp_image_row = grasp_image_index / semantic_object.color_image.width;
+//        int grasp_image_col = grasp_image_index - (grasp_image_row * semantic_object.color_image.width);
+//        grasp_image_col = grasp_image_col - col_min;
+//        grasp_image_row = grasp_image_row - row_min;
+//        // ROS_INFO("closest point img row %d, col %d", grasp_image_row, grasp_image_col);
+//
+//        // create the new img
+//        for (int h = 0; h < msg.height; h++)
+//        {
+//            for (int w = 0; w < msg.width; w++)
+//            {
+//                int index = (msg.step * h) + (w * 3);
+//                if (abs(h - grasp_image_row) < 5 and abs(w - grasp_image_col) < 5)
+//                {
+//                    msg.data[index] = 0;
+//                    msg.data[index + 1] = 255;
+//                    msg.data[index + 2] = 255;
+//                } else
+//                {
+//                    // set RGB data
+//                    int old_index = (semantic_object.color_image.step * (h + row_min)) + ((w + col_min) * 3);
+//                    msg.data[index] = semantic_object.color_image.data[old_index + 2];
+//                    msg.data[index + 1] = semantic_object.color_image.data[old_index + 1];
+//                    msg.data[index + 2] = semantic_object.color_image.data[old_index];
+//                }
+//            }
+//        }
+//        debug_img_pub_.publish(msg);
+
 
         // use OpenCV to compute image features
         // convert to opencv img
         cv_bridge::CvImagePtr cv_ptr;
         cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
-        // cv::imshow(OPENCV_WINDOW, cv_ptr->image);
-        // cv::waitKey(3);
-
-        // use sift detector
-        int minHessian = 400;
-        cv::Ptr<cv::Feature2D> sift = cv::xfeatures2d::SIFT::create(minHessian);
-        std::vector<cv::KeyPoint> keypoints;
-        sift->detect(cv_ptr->image, keypoints);
 
 
-        // debug
-        // find key points that are close to the grasp point
-        int nearest_sift_k = 4;
-        std::vector<cv::KeyPoint> k_nearest_keypoints;
-        for (int si = 0; si < keypoints.size(); ++si)
+// The following block of code detect and compute descriptors for keypoints using SIFT
+//        // use sift detector
+//        int minHessian = 100;
+//        cv::Ptr<cv::Feature2D> sift = cv::xfeatures2d::SIFT::create(minHessian);
+//        std::vector<cv::KeyPoint> keypoints;
+//        sift->detect(cv_ptr->image, keypoints);
+//        cv::Mat img_keypoints;
+//        drawKeypoints(cv_ptr->image, keypoints, img_keypoints, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
+//        string OPENCV_WINDOW = "test";
+//        cv::namedWindow(OPENCV_WINDOW);
+//        cv::imshow(OPENCV_WINDOW, img_keypoints);
+//        cv::waitKey(3);
+//        // find key points that are close to the grasp point
+//        int nearest_sift_k = 4;
+//        std::vector<cv::KeyPoint> k_nearest_keypoints;
+//        for (int si = 0; si < keypoints.size(); ++si)
+//        {
+//            if (sqrt(pow(keypoints[si].pt.x - grasp_image_col, 2) + pow(keypoints[si].pt.y - grasp_image_row, 2)) < 10)
+//            {
+//                k_nearest_keypoints.push_back(keypoints[si]);
+//            }
+//        }
+//        // visualize keypoints
+//        cv::Mat img_keypoints;
+//        drawKeypoints(cv_ptr->image, k_nearest_keypoints, img_keypoints, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
+//        cv::imshow(OPENCV_WINDOW, img_keypoints);
+//        cv::waitKey(3);
+
+        // 2.3.1 Intensity, gradient, second-order gradient histogram
+        // compute first order gradient of the image
+        cv::Mat src_blur, src_gray, grad;
+        int kernel_size = 3;
+        int scale = 1;
+        int delta = 0;
+        int ddepth = CV_16S;
+        // blur the image
+        cv::GaussianBlur(cv_ptr->image, src_blur, cv::Size(3, 3), 0 ,0 , cv::BORDER_DEFAULT);
+        cv::cvtColor(src_blur, src_gray, CV_BGR2GRAY);
+        // compute gradient in x, y direction
+        cv::Mat grad_x, grad_y, abs_grad_x, abs_grad_y;
+        cv::Scharr(src_gray, grad_x, ddepth, 1, 0, scale, delta, cv::BORDER_DEFAULT);
+        // Sobel is another option, just not as accurate
+        // Sobel( src_gray, grad_x, ddepth, 1, 0, 3, scale, delta, BORDER_DEFAULT );
+        cv::Scharr(src_gray, grad_y, ddepth, 0, 1, scale, delta, cv::BORDER_DEFAULT);
+        // Sobel( src_gray, grad_y, ddepth, 0, 1, 3, scale, delta, BORDER_DEFAULT );
+        // scale and normalize
+        convertScaleAbs(grad_x, abs_grad_x);
+        convertScaleAbs(grad_y, abs_grad_y);
+        // total gradient
+        addWeighted(abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad);
+        // visualize gradient
+        if (debug_)
         {
-            if (sqrt(pow(keypoints[si].pt.x - grasp_image_col, 2) + pow(keypoints[si].pt.y - grasp_image_row, 2)) < 10)
-            {
-                k_nearest_keypoints.push_back(keypoints[si]);
-            }
+            string first_order_vis = "first_order_grad";
+            cv::namedWindow(first_order_vis);
+            cv::imshow(first_order_vis, grad);
+            cv::waitKey(3);
         }
 
-        // visualize keypoints
-        cv::Mat img_keypoints;
-        drawKeypoints(cv_ptr->image, k_nearest_keypoints, img_keypoints, cv::Scalar::all(-1), cv::DrawMatchesFlags::DEFAULT);
-        cv::imshow(OPENCV_WINDOW, img_keypoints);
-        cv::waitKey(3);
+        // compute second order gradient (apply Laplace function)
+        cv::Mat lap, abs_lap;
+        cv::Laplacian(src_gray, lap, ddepth, kernel_size, scale, delta, cv::BORDER_DEFAULT);
+        convertScaleAbs(lap, abs_lap);
+        // visualize second gradient
+        if (debug_)
+        {
+            string second_order_vis = "second_order_grad";
+            cv::namedWindow(second_order_vis);
+            cv::imshow(second_order_vis, abs_lap);
+            cv::waitKey(3);
+        }
+
+        // convert image to grayscale
+        cv::Mat gray;
+        cv::cvtColor(cv_ptr->image, gray, CV_BGR2GRAY);
+
+
+// handy function to determine the data type of Mat
+//        string r;
+//        uchar depth = abs_lap.type() & CV_MAT_DEPTH_MASK;
+//        uchar chans = 1 + (abs_lap.type() >> CV_CN_SHIFT);
+//        switch ( depth ) {
+//            case CV_8U:  r = "8U"; break;
+//            case CV_8S:  r = "8S"; break;
+//            case CV_16U: r = "16U"; break;
+//            case CV_16S: r = "16S"; break;
+//            case CV_32S: r = "32S"; break;
+//            case CV_32F: r = "32F"; break;
+//            case CV_64F: r = "64F"; break;
+//            default:     r = "User"; break;
+//        }
+//        r += "C";
+//        r += (chans+'0');
+//        ROS_INFO("Matrix: %s", r.c_str());
+
+
+        // create histogram
+        // number of bins
+        int bins = 25;
+        int histSize[] = {bins};
+        float hranges[] = {0, 255}; // for CV_8U
+        const float* ranges[] = {hranges};
+        cv::Mat hist1, hist2, hist0;
+        // calculate histogram for first order gradient
+        calcHist(&grad, 1, 0, cv::Mat(), // do not use mask
+                 hist1, 1, histSize, ranges,
+                 true, // the histogram is uniform
+                 false // do not accumulate
+                 );
+        // calculate histogram for second order gradient
+        calcHist(&abs_lap, 1, 0, cv::Mat(), // do not use mask
+                 hist2, 1, histSize, ranges,
+                 true, // the histogram is uniform
+                 false // do not accumulate
+        );
+        //
+        // calculate histogram for gray scale
+        calcHist(&gray, 1, 0, cv::Mat(), // do not use mask
+                 hist0, 1, histSize, ranges,
+                 true, // the histogram is uniform
+                 false // do not accumulate
+        );
+
+        // visualize histogram
+        if (debug_)
+        {
+            int hist_w = 512, hist_h = 400;
+            int bin_w = cvRound((double) hist_w / histSize[0]);
+            cv::Mat histImage(hist_h, hist_w, CV_8UC3, cv::Scalar(0,0,0));
+
+            normalize(hist1, hist1, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+            normalize(hist2, hist2, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+            normalize(hist0, hist0, 0, histImage.rows, cv::NORM_MINMAX, -1, cv::Mat());
+
+            for( int i = 1; i < histSize[0]; i++ )
+            {
+                line( histImage, cv::Point( bin_w*(i-1), hist_h - cvRound(hist1.at<float>(i-1)) ),
+                      cv::Point( bin_w*(i), hist_h - cvRound(hist1.at<float>(i)) ),
+                      cv::Scalar( 255, 0, 0), 2, 8, 0 );
+                line( histImage, cv::Point( bin_w*(i-1), hist_h - cvRound(hist2.at<float>(i-1)) ),
+                      cv::Point( bin_w*(i), hist_h - cvRound(hist2.at<float>(i)) ),
+                      cv::Scalar( 0, 255, 0), 2, 8, 0 );
+                line( histImage, cv::Point( bin_w*(i-1), hist_h - cvRound(hist0.at<float>(i-1)) ),
+                      cv::Point( bin_w*(i), hist_h - cvRound(hist0.at<float>(i)) ),
+                      cv::Scalar( 0, 0, 255), 2, 8, 0 );
+            }
+            string hist_vis = "image gradient histogram";
+            cv::namedWindow(hist_vis);
+            cv::imshow(hist_vis, histImage);
+            cv::waitKey(3);
+        }
+
+        // computed features
+        vector<double> intensity_histogram, first_gradient_histogram, second_gradient_histogram;
+        for (int mi =0; mi < hist0.rows; ++mi)
+        {
+            intensity_histogram.insert(intensity_histogram.end(), hist0.ptr<float>(mi), hist0.ptr<float>(mi)+hist0.cols);
+            first_gradient_histogram.insert(first_gradient_histogram.end(), hist1.ptr<float>(mi), hist1.ptr<float>(mi)+hist1.cols);
+            second_gradient_histogram.insert(second_gradient_histogram.end(), hist2.ptr<float>(mi), hist2.ptr<float>(mi)+hist2.cols);
+        }
+
+        // normalize
+        double intensity_sum = std::accumulate(intensity_histogram.begin(), intensity_histogram.end(), 0);
+        double first_gradient_sum = std::accumulate(first_gradient_histogram.begin(), first_gradient_histogram.end(), 0);
+        double second_gradient_sum = std::accumulate(second_gradient_histogram.begin(), second_gradient_histogram.end(), 0);
+        for (int hi = 0; hi < intensity_histogram.size(); ++hi)
+        {
+            intensity_histogram[hi] = intensity_histogram[hi] / intensity_sum;
+            first_gradient_histogram[hi] = first_gradient_histogram[hi] / first_gradient_sum;
+            second_gradient_histogram[hi] = second_gradient_histogram[hi] / second_gradient_sum;
+        }
+        
+        // 2.3.2 Color histogram in CIELab space
+        cv::Mat img_lab;
+        cvtColor(cv_ptr->image, img_lab, CV_BGR2Lab);
+
+        // split lab image to separate channels
+        vector<cv::Mat> lab_planes;
+        split(img_lab, lab_planes);
+        // bin size
+        int lab_histSize[] = {5};
+        cv::Mat l_hist, a_hist, b_hist;
+        calcHist(&lab_planes[0], 1, 0, cv::Mat(), l_hist, 1, lab_histSize, ranges, true, false);
+        calcHist(&lab_planes[1], 1, 0, cv::Mat(), a_hist, 1, lab_histSize, ranges, true, false);
+        calcHist(&lab_planes[2], 1, 0, cv::Mat(), b_hist, 1, lab_histSize, ranges, true, false);
+
+        // computed features
+        vector<double> color_histogram;
+        for (int mi =0; mi < l_hist.rows; ++mi)
+        {
+            color_histogram.insert(color_histogram.end(), l_hist.ptr<float>(mi), l_hist.ptr<float>(mi)+l_hist.cols);
+            color_histogram.insert(color_histogram.end(), a_hist.ptr<float>(mi), a_hist.ptr<float>(mi)+a_hist.cols);
+            color_histogram.insert(color_histogram.end(), b_hist.ptr<float>(mi), b_hist.ptr<float>(mi)+b_hist.cols);
+        }
+
+        double lab_sum = std::accumulate(color_histogram.begin(), color_histogram.end(), 0);
+        for (int hi = 0; hi < color_histogram.size(); ++hi)
+        {
+            color_histogram[hi] = color_histogram[hi] / lab_sum;
+        }
+
+        for (int mi = 0; mi < color_histogram.size(); ++mi)
+        {
+            ROS_INFO("%f", color_histogram[mi]);
+        }
 
         // test just one grasp
         break;

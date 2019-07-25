@@ -96,7 +96,7 @@ private:
   bool computeBaseFeaturesCallback(rail_semantic_grasping::ComputeBaseFeaturesRequest &req,
                                    rail_semantic_grasping::ComputeBaseFeaturesResponse &res);
 
-  bool debug;
+  bool debug_;
 
   int cylinder_segmentation_normal_k_, shape_segmentation_max_iteration_;
   double cylinder_segmentation_normal_distance_weight_, cylinder_segmentation_distance_threshold_ratio_,
