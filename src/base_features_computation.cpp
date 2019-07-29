@@ -3,7 +3,7 @@
 using namespace std;
 using namespace rail::semantic_grasping;
 
-BaseFeaturesComputation::BaseFeaturesComputation() : private_node_("~"), tf2_(tf_buffer_), debug_(true)
+BaseFeaturesComputation::BaseFeaturesComputation() : private_node_("~"), tf2_(tf_buffer_), debug_(false)
 {
     // check opencv version. Since indigo, the default is 3.
     ROS_INFO("Computation of image features is based on OpenCV %d", CV_MAJOR_VERSION);
@@ -54,7 +54,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     ROS_INFO("The axis order from shortest to longest is %d, %d, %d", axes[0].second, axes[1].second, axes[2].second);
 
     // computed feature
-    vector<double> elongatedness = {axes[1].first / axes[2].first, axes[0].first / axes[2].first};
+    vector<double> object_elongatedness = {axes[1].first / axes[2].first, axes[0].first / axes[2].first};
 
     // --------------------------------------------------------
     // 1.2 Shape primitives: cylinder, sphere
@@ -103,7 +103,7 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
         extract.setIndices(cylinder_indices);
         extract.setNegative(false);
         extract.filter(*cylinder_pc);
-        debug_pc_pub_2_.publish(cylinder_pc);
+        debug_pc_pub_.publish(cylinder_pc);
     }
 
     // create the segmentation object for sphere segmentation and set all the parameters
@@ -136,14 +136,14 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     }
 
     // computed feature
-    double spherical_resemblance = sphere_indices->indices.size() * 1.0 / object_pc->size();
-    double cylindrical_resemblance = cylinder_indices->indices.size() * 1.0 / object_pc->size();
+    double object_spherical_resemblance = sphere_indices->indices.size() * 1.0 / object_pc->size();
+    double object_cylindrical_resemblance = cylinder_indices->indices.size() * 1.0 / object_pc->size();
 
     // --------------------------------------------------------
     // 1.3 Volume
     ROS_INFO("Bounding volume frame %s", semantic_object.bounding_volume.pose.header.frame_id.c_str());
     //debug_pose_pub_.publish(semantic_object.bounding_volume.pose);
-    double volume = semantic_object.bounding_volume.dimensions.x * semantic_object.bounding_volume.dimensions.y *
+    double object_volume = semantic_object.bounding_volume.dimensions.x * semantic_object.bounding_volume.dimensions.y *
             semantic_object.bounding_volume.dimensions.z * 100 * 100 * 100;    // unit: meter^2
 
     // --------------------------------------------------------
@@ -154,19 +154,19 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
     esf_extractor.compute(*esf_signature);
 
     // computed feature
-    vector<double> esf_descriptor;
+    vector<double> object_esf_descriptor;
     for (size_t ei = 0; ei < 640; ++ei)
     {
-        esf_descriptor.push_back(esf_signature->points[0].histogram[ei]);
+        object_esf_descriptor.push_back(esf_signature->points[0].histogram[ei]);
     }
 
     // --------------------------------------------------------
     // 1.5 Opening
-    double opening = 0.0;
+    int object_opening = 0;
     if (semantic_object.name == "cup" or semantic_object.name == "bowl"
         or semantic_object.name == "bottle" or semantic_object.name == "pan")
     {
-        opening = 1.0;
+        object_opening = 1;
     }
 
     //##################################################################################################################
@@ -187,18 +187,18 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
                                                     grasp.grasp_pose.position.z - semantic_object.center.z};
 
         // computed features
-        vector<double> relative_grasping_position = {grasp_position_difference[axes[2].second] / axes[2].first,
+        vector<double> grasp_relative_position = {grasp_position_difference[axes[2].second] / axes[2].first,
                                                      grasp_position_difference[axes[1].second] / axes[1].first,
                                                      grasp_position_difference[axes[0].second] / axes[0].first};
 
-        ROS_INFO("Relative grasp position is %f, %f, %f", relative_grasping_position[0], relative_grasping_position[1],
-                 relative_grasping_position[2]);
+        ROS_INFO("Relative grasp position is %f, %f, %f", grasp_relative_position[0], grasp_relative_position[1],
+                 grasp_relative_position[2]);
 
         // --------------------------------------------------------
         // 2.2 Opening
-        double opening_grasp_angle;
-        double opening_grasp_distance;
-        if (opening == 1.0)
+        double grasp_opening_angle = 0;
+        double grasp_opening_distance = 0;
+        if (object_opening == 1.0)
         {
             // 2.2.1 Angle (i.e., cos(theta) in [-1, 1]) to the opening plane
             // calculate the cos(theta), where theta is the shortest angle between the grasp approach vector and the
@@ -206,7 +206,12 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
             geometry_msgs::PoseStamped grasp_pose;
             grasp_pose.pose = grasp.grasp_pose;
             grasp_pose.header.frame_id = semantic_object.point_cloud.header.frame_id;
-            debug_pose_pub_2_.publish(grasp_pose);
+
+            if (debug_)
+            {
+                debug_pose_pub_2_.publish(grasp_pose);
+            }
+
             tf::Quaternion grasp_q(grasp.grasp_pose.orientation.x,
                                              grasp.grasp_pose.orientation.y,
                                              grasp.grasp_pose.orientation.z,
@@ -217,20 +222,23 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
             double cos_angle = grasp_vector.normalized().dot(opening_normal_vector.normalized());
 
             // computed feature
-            opening_grasp_angle = cos_angle;
-            ROS_INFO("Cos(angle) from grasp to opening is %f", opening_grasp_angle);
+            grasp_opening_angle = cos_angle;
+            ROS_INFO("Cos(angle) from grasp to opening is %f", grasp_opening_angle);
 
             // 2.2.2 Distance to the opening plane if an opening exists
             // the shortest distance from the grasp to the opening plane is in the z direction
 
             // computed feature
-            opening_grasp_distance = grasp_pose.pose.position.z - semantic_object.center.z;
-            ROS_INFO("Distance from grasp to opening is %f", opening_grasp_distance);
+            grasp_opening_distance = grasp_pose.pose.position.z - semantic_object.center.z;
+            ROS_INFO("Distance from grasp to opening is %f", grasp_opening_distance);
         }
 
         // --------------------------------------------------------
         // 2.3 locate image region that the grasp is near to
         // find distance between the position of the grasp and the point cloud of the object
+
+        int grasp_image_window_width = 20;
+
         pcl::PointXYZRGB grasp_position;
         grasp_position.x = grasp.grasp_pose.position.x;
         grasp_position.y = grasp.grasp_pose.position.y;
@@ -249,10 +257,10 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
         // calculate row and column of this point
         int row = grasp_full_image_index / semantic_object.color_image.width;
         int col = grasp_full_image_index - (row * semantic_object.color_image.width);
-        int row_min = row - 10;
-        int row_max = row + 10;
-        int col_min = col - 10;
-        int col_max = col + 10;
+        int row_min = row - grasp_image_window_width / 2;
+        int row_max = row + grasp_image_window_width / 2;
+        int col_min = col - grasp_image_window_width / 2;
+        int col_max = col + grasp_image_window_width / 2;
         // create a ROS image
         sensor_msgs::Image msg;
         // set basic information
@@ -277,7 +285,10 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
                 msg.data[index + 2] = semantic_object.color_image.data[old_index];
             }
         }
-        debug_img_pub_.publish(msg);
+        if (debug_)
+        {
+            debug_img_pub_.publish(msg);
+        }
 
 
 // The following block of code create an image of the whole object and highlight the position of the grasp on the img.
@@ -523,25 +534,25 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
         }
 
         // computed features
-        vector<double> intensity_histogram, first_gradient_histogram, second_gradient_histogram;
+        vector<double> grasp_intensity_histogram, grasp_first_gradient_histogram, grasp_second_gradient_histogram;
         for (int mi =0; mi < hist0.rows; ++mi)
         {
-            intensity_histogram.insert(intensity_histogram.end(), hist0.ptr<float>(mi), hist0.ptr<float>(mi)+hist0.cols);
-            first_gradient_histogram.insert(first_gradient_histogram.end(), hist1.ptr<float>(mi), hist1.ptr<float>(mi)+hist1.cols);
-            second_gradient_histogram.insert(second_gradient_histogram.end(), hist2.ptr<float>(mi), hist2.ptr<float>(mi)+hist2.cols);
+            grasp_intensity_histogram.insert(grasp_intensity_histogram.end(), hist0.ptr<float>(mi), hist0.ptr<float>(mi)+hist0.cols);
+            grasp_first_gradient_histogram.insert(grasp_first_gradient_histogram.end(), hist1.ptr<float>(mi), hist1.ptr<float>(mi)+hist1.cols);
+            grasp_second_gradient_histogram.insert(grasp_second_gradient_histogram.end(), hist2.ptr<float>(mi), hist2.ptr<float>(mi)+hist2.cols);
         }
 
         // normalize
-        double intensity_sum = std::accumulate(intensity_histogram.begin(), intensity_histogram.end(), 0);
-        double first_gradient_sum = std::accumulate(first_gradient_histogram.begin(), first_gradient_histogram.end(), 0);
-        double second_gradient_sum = std::accumulate(second_gradient_histogram.begin(), second_gradient_histogram.end(), 0);
-        for (int hi = 0; hi < intensity_histogram.size(); ++hi)
+        double intensity_sum = std::accumulate(grasp_intensity_histogram.begin(), grasp_intensity_histogram.end(), 0);
+        double first_gradient_sum = std::accumulate(grasp_first_gradient_histogram.begin(), grasp_first_gradient_histogram.end(), 0);
+        double second_gradient_sum = std::accumulate(grasp_second_gradient_histogram.begin(), grasp_second_gradient_histogram.end(), 0);
+        for (int hi = 0; hi < grasp_intensity_histogram.size(); ++hi)
         {
-            intensity_histogram[hi] = intensity_histogram[hi] / intensity_sum;
-            first_gradient_histogram[hi] = first_gradient_histogram[hi] / first_gradient_sum;
-            second_gradient_histogram[hi] = second_gradient_histogram[hi] / second_gradient_sum;
+            grasp_intensity_histogram[hi] = grasp_intensity_histogram[hi] / intensity_sum;
+            grasp_first_gradient_histogram[hi] = grasp_first_gradient_histogram[hi] / first_gradient_sum;
+            grasp_second_gradient_histogram[hi] = grasp_second_gradient_histogram[hi] / second_gradient_sum;
         }
-        
+
         // 2.3.2 Color histogram in CIELab space
         cv::Mat img_lab;
         cvtColor(cv_ptr->image, img_lab, CV_BGR2Lab);
@@ -550,48 +561,91 @@ bool BaseFeaturesComputation::computeBaseFeaturesCallback(rail_semantic_grasping
         vector<cv::Mat> lab_planes;
         split(img_lab, lab_planes);
         // bin size
-        int lab_histSize[] = {5};
+        int lab_histSize[] = {15};
         cv::Mat l_hist, a_hist, b_hist;
         calcHist(&lab_planes[0], 1, 0, cv::Mat(), l_hist, 1, lab_histSize, ranges, true, false);
         calcHist(&lab_planes[1], 1, 0, cv::Mat(), a_hist, 1, lab_histSize, ranges, true, false);
         calcHist(&lab_planes[2], 1, 0, cv::Mat(), b_hist, 1, lab_histSize, ranges, true, false);
 
         // computed features
-        vector<double> color_histogram;
-        for (int mi =0; mi < l_hist.rows; ++mi)
+        vector<double> grasp_color_histogram;
+        // option 1: concatenation
+//        for (int mi =0; mi < l_hist.rows; ++mi)
+//        {
+//            grasp_color_histogram.insert(grasp_color_histogram.end(), l_hist.ptr<float>(mi), l_hist.ptr<float>(mi)+l_hist.cols);
+//            grasp_color_histogram.insert(grasp_color_histogram.end(), a_hist.ptr<float>(mi), a_hist.ptr<float>(mi)+a_hist.cols);
+//            grasp_color_histogram.insert(grasp_color_histogram.end(), b_hist.ptr<float>(mi), b_hist.ptr<float>(mi)+b_hist.cols);
+//        }
+        // option 2: Euclidean distance
+        for (int mi = 0; mi < l_hist.rows; ++mi)
         {
-            color_histogram.insert(color_histogram.end(), l_hist.ptr<float>(mi), l_hist.ptr<float>(mi)+l_hist.cols);
-            color_histogram.insert(color_histogram.end(), a_hist.ptr<float>(mi), a_hist.ptr<float>(mi)+a_hist.cols);
-            color_histogram.insert(color_histogram.end(), b_hist.ptr<float>(mi), b_hist.ptr<float>(mi)+b_hist.cols);
+            float* l_ptr = l_hist.ptr<float>(mi);
+            float* a_ptr = a_hist.ptr<float>(mi);
+            float* b_ptr = b_hist.ptr<float>(mi);
+            for (int mj = 0; mj < l_hist.cols; ++mj)
+            {
+                float value = sqrt(pow(l_ptr[mj],2) + pow(a_ptr[mj],2) + pow(b_ptr[mj],2));
+                grasp_color_histogram.push_back(value);
+            }
         }
 
-        double lab_sum = std::accumulate(color_histogram.begin(), color_histogram.end(), 0);
-        for (int hi = 0; hi < color_histogram.size(); ++hi)
+        // normalize
+        double lab_sum = std::accumulate(grasp_color_histogram.begin(), grasp_color_histogram.end(), 0);
+        for (int hi = 0; hi < grasp_color_histogram.size(); ++hi)
         {
-            color_histogram[hi] = color_histogram[hi] / lab_sum;
+            grasp_color_histogram[hi] = grasp_color_histogram[hi] / lab_sum;
         }
 
-        for (int mi = 0; mi < color_histogram.size(); ++mi)
+        // 2.3.2 Color uniformity in CIELab space
+        // computed features
+        // mean
+        double grasp_color_mean = 0;
+        for (int ci = 0; ci < grasp_color_histogram.size(); ++ci)
         {
-            ROS_INFO("%f", color_histogram[mi]);
+            grasp_color_mean = grasp_color_mean + grasp_color_histogram[ci] * (ci + 1);
         }
+        // sample variance
+        double grasp_color_variance = 0;
+        int total_number = 0;
+        for (int ci = 0; ci < grasp_color_histogram.size(); ++ci)
+        {
+            grasp_color_variance = grasp_color_variance + grasp_color_histogram[ci] * pow(ci + 1 - grasp_color_mean, 2);
+        }
+        // entropy
+        double grasp_color_entropy = 0;
+        for (int ci = 0; ci < grasp_color_histogram.size(); ++ci)
+        {
+            if (grasp_color_histogram[ci] == 0) continue;
+            grasp_color_entropy = grasp_color_entropy - grasp_color_histogram[ci] * log(grasp_color_histogram[ci]);
+        }
+        ROS_INFO("Color mean: %f", grasp_color_mean);
+        ROS_INFO("Color variance: %f", grasp_color_variance);
+        ROS_INFO("Color entropy: %f", grasp_color_entropy);
 
-        // test just one grasp
-        break;
+        // Store all features in msg
+        rail_semantic_grasping::BaseFeatures base_features;
+        base_features.object_spherical_resemblance = object_spherical_resemblance;
+        base_features.object_cylindrical_resemblance = object_cylindrical_resemblance;
+        base_features.object_elongatedness = object_elongatedness;
+        base_features.object_volume = object_volume;
+        base_features.object_esf_descriptor = object_esf_descriptor;
+        base_features.grasp_relative_position = grasp_relative_position;
+        base_features.object_opening = object_opening;
+        base_features.grasp_opening_angle = grasp_opening_angle;
+        base_features.grasp_opening_distance = grasp_opening_distance;
+        base_features.grasp_intensity_histogram = grasp_intensity_histogram;
+        base_features.grasp_first_gradient_histogram = grasp_first_gradient_histogram;
+        base_features.grasp_second_gradient_histogram = grasp_second_gradient_histogram;
+        base_features.grasp_color_histogram = grasp_color_histogram;
+        base_features.grasp_color_mean = grasp_color_mean;
+        base_features.grasp_color_variance = grasp_color_variance;
+        base_features.grasp_color_entropy = grasp_color_entropy;
+        base_features.label = grasp.score;
+        base_features.task = grasp.task;
 
-
-
-
-//        tf::Quaternion q(grasp.grasp_pose.orientation.x,
-//                         grasp.grasp_pose.orientation.y,
-//                         grasp.grasp_pose.orientation.z,
-//                         grasp.grasp_pose.orientation.w);
-//        tf::Matrix3x3 m(q);
-//        double roll, pitch, yaw;
-//        m.getRPY(roll, pitch, yaw);
-
+        // add to service response
+        res.base_features_list.push_back(base_features);
     }
-
 
     return true;
 }

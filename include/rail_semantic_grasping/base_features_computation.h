@@ -28,9 +28,12 @@
 //#include <rail_manipulation_msgs/SegmentObjectsFromPointCloud.h>
 //#include <rail_manipulation_msgs/ProcessSegmentedObjects.h>
 
+// msg
 #include <rail_semantic_grasping/SemanticObjectList.h>
 #include <rail_semantic_grasping/SemanticObject.h>
 #include <rail_semantic_grasping/SemanticPart.h>
+#include <rail_semantic_grasping/BaseFeatures.h>
+// srv
 #include <rail_semantic_grasping/SegmentSemanticObjects.h>
 #include <rail_semantic_grasping/ComputeBaseFeatures.h>
 

@@ -10,6 +10,7 @@ def main():
     rospy.init_node('base_features_model')
     bfm = BaseFeaturesModel()
     bfm.compute_features()
+    bfm.run_knn()
     rospy.spin()
 
 
