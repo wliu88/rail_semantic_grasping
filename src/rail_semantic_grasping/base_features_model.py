@@ -7,7 +7,8 @@ from datetime import datetime
 import pickle
 import copy
 import numpy as np
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
+import pandas as pd
 
 import rospy
 import rospkg
@@ -36,11 +37,13 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingClassifier
 
-
 from pylmnn import LargeMarginNearestNeighbor as LMNN
 
+
 class BaseFeaturesModel:
+
     TASKS = ["pour", "scoop", "stab", "cut", "lift", "hammer", "handover"]
+    OBJECTS = ["cup", "spatula", "bowl", "pan"]
 
     def __init__(self):
 
@@ -59,11 +62,14 @@ class BaseFeaturesModel:
             print("Labeled data folder {} does not exist. Exiting!".format(self.labeled_data_dir))
             exit()
 
-        self.data = defaultdict(list)
-
-        # Set up service client
-        rospy.wait_for_service(self.compute_base_features_topic)
-        self.compute_base_features = rospy.ServiceProxy(self.compute_base_features_topic, ComputeBaseFeatures)
+        self.data = OrderedDict()
+        self.semantic_data = OrderedDict()
+        for task in BaseFeaturesModel.TASKS:
+            self.data[task] = OrderedDict()
+            self.semantic_data[task] = OrderedDict()
+            for object in BaseFeaturesModel.OBJECTS:
+                self.data[task][object] = OrderedDict()
+                self.semantic_data[task][object] = OrderedDict()
 
         # Listen to semantic objects with grasps
         # self.semantic_objects_sub = rospy.Subscriber(self.semantic_objects_topic,
@@ -76,6 +82,10 @@ class BaseFeaturesModel:
         self.marker_pub = rospy.Publisher("~data_collection/marker", Marker, queue_size=10, latch=True)
         self.color_image_pub = rospy.Publisher("~data_collection/color_image", Image, queue_size=10, latch=True)
         self.pc_pub = rospy.Publisher("~data_collection/point_cloud", PointCloud2, queue_size=10, latch=True)
+
+        # Set up service client
+        rospy.wait_for_service(self.compute_base_features_topic)
+        self.compute_base_features = rospy.ServiceProxy(self.compute_base_features_topic, ComputeBaseFeatures)
 
     def compute_features(self):
         # grab all sessions in the unlabeled data dir
@@ -114,8 +124,11 @@ class BaseFeaturesModel:
                 try:
                     resp = self.compute_base_features(semantic_objects)
                 except rospy.ServiceException:
-                        print("Service call failed")
-                        exit()
+                    print("Service call failed")
+                    exit()
+
+                object_class = semantic_object.name
+                object_id = len(self.data[list(self.data.keys())[0]][object_class])
 
                 # add features to data
                 # each instance is a list of [task, label, features, histograms, descriptor]
@@ -140,7 +153,19 @@ class BaseFeaturesModel:
                     descriptor = base_features.object_esf_descriptor
                     task = base_features.task
                     label = base_features.label
-                    self.data[task].append([label, features, histograms, descriptor])
+
+                    if object_id not in self.data[task][object_class]:
+                        self.data[task][object_class][object_id] = []
+                    self.data[task][object_class][object_id].append([label, features, histograms, descriptor])
+
+                for grasp in semantic_object.labeled_grasps:
+                    task = grasp.task
+                    label = grasp.score
+                    affordance = grasp.grasp_part_affordance
+                    material = grasp.grasp_part_material
+                    if object_id not in self.semantic_data[task][object_class]:
+                        self.semantic_data[task][object_class][object_id] = []
+                    self.semantic_data[task][object_class][object_id].append([label, affordance, material])
 
     def run_knn(self):
         """
@@ -148,34 +173,182 @@ class BaseFeaturesModel:
         :return:
         """
 
-        for task in self.data:
-            print("#"*50)
-            print("Run KNN for task {}".format(task))
-            data_for_task = self.data[task]
+        TEST_PERCENTAGE = 0.5
 
-            # preprocess features
-            features = np.array([instance[1] for instance in data_for_task])
-            scalar = preprocessing.StandardScaler()
-            scalar.fit(features)
-            features = scalar.transform(features)
+        map_scores = np.ones([len(BaseFeaturesModel.TASKS), len(BaseFeaturesModel.OBJECTS)]) * -1.0
+        map_scores_1 = np.ones([len(BaseFeaturesModel.TASKS), len(BaseFeaturesModel.OBJECTS)]) * -1.0
+        for ti, task in enumerate(self.data):
+            for oi, object_class in enumerate(self.data[task]):
 
-            # concatenate features with histograms and descriptor
-            histograms = np.array([instance[2] for instance in data_for_task])
-            descriptors = np.array([instance[3] for instance in data_for_task])
-            X = np.concatenate([features, histograms, descriptors], axis=1)
-            Y = np.array([instance[0] for instance in data_for_task])
-            Y[Y==-1] = 0
-            print("X shpae", X.shape)
-            print("Y shape", Y.shape)
-            print("Neg:Pos ratio: {}".format((Y.size - np.sum(Y))/np.sum(Y)*1.0))
+                # # debug
+                # if object_class != "cup":
+                #     continue
 
-            # split data
-            X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.3, random_state=42)
+                print("#"*50)
+                print("Run KNN for task {} and object {}".format(task, object_class))
+                objects_data = self.data[task][object_class]
 
-            # run algorithm
-            train_classifier_logistic(X_train, X_test, Y_train, Y_test)
-            train_classifier_knn(X_train, X_test, Y_train, Y_test)
-            train_classifier_lmnn(X_train, X_test, Y_train, Y_test)
+                semantic_objects_data = self.semantic_data[task][object_class]
+
+                num_objects = len(objects_data)
+                num_test = int(num_objects * TEST_PERCENTAGE)
+                print("Number of objects:", num_objects)
+                print("Number of test objects:", num_test)
+                if not num_test:
+                    print("Not enough object to test")
+                    continue
+
+                APs = []
+                APs_1 = []
+                # repeat test 10 times
+                for test in range(10):
+                    train_object_ids = np.random.choice(num_objects, num_objects - num_test, replace=False)
+
+                    # Low level features
+                    features = []
+                    histograms = []
+                    descriptors = []
+                    labels = []
+                    for id in train_object_ids:
+                        object_data = objects_data[id]
+                        features.extend([instance[1] for instance in object_data])
+                        histograms.extend([instance[2] for instance in object_data])
+                        descriptors.extend([instance[3] for instance in object_data])
+                        labels.extend([instance[0] for instance in object_data])
+
+                    features = np.array(features)
+                    histograms = np.array(histograms)
+                    descriptors = np.array(descriptors)
+
+                    # preprocess features
+                    scalar = preprocessing.StandardScaler()
+                    scalar.fit(features)
+                    features = scalar.transform(features)
+
+                    X_train = np.concatenate([features, histograms, descriptors], axis=1)
+                    Y_train = np.array(labels)
+                    Y_train[Y_train == -1] = 0
+                    if np.sum(Y_train) == 0:
+                        print("Skip this task because there is no positive examples")
+                        continue
+                    # print("X shape", X_train.shape)
+                    # print("Y shape", Y_train.shape)
+                    print("Neg:Pos ratio: {}".format((Y_train.size - np.sum(Y_train)) / np.sum(Y_train) * 1.0))
+
+                    classifier = KNeighborsClassifier(n_neighbors=5)
+                    # classifier = LogisticRegressionCV(cv=10, tol=0.0001, class_weight='balanced', random_state=42,
+                    #                                  multi_class='ovr', verbose=False)
+                    classifier.fit(X_train, Y_train)
+
+                    # Test
+                    for id in range(num_objects):
+                        if id in train_object_ids:
+                            continue
+                        object_data = objects_data[id]
+                        features = [instance[1] for instance in object_data]
+                        histograms = [instance[2] for instance in object_data]
+                        descriptors = [instance[3] for instance in object_data]
+                        labels = [instance[0] for instance in object_data]
+
+                        features = np.array(features)
+                        histograms = np.array(histograms)
+                        descriptors = np.array(descriptors)
+
+                        # preprocess features
+                        features = scalar.transform(features)
+
+                        X_test = np.concatenate([features, histograms, descriptors], axis=1)
+                        Y_test = np.array(labels)
+                        Y_test[Y_test == -1] = 0
+
+                        # predict
+                        Y_probs = classifier.predict_proba(X_test)[:, 1]
+
+                        # calculate AP
+                        sort_indices = np.argsort(Y_probs)[::-1]
+                        Y_probs = Y_probs[sort_indices]
+                        Y_test = Y_test[sort_indices]
+
+                        num_corrects = 0.0
+                        num_predictions = 0.0
+                        total_precisions = []
+                        for i in range(len(Y_test)):
+                            num_predictions += 1
+                            if Y_test[i] == 1:
+                                num_corrects += 1
+                                total_precisions.append(num_corrects / num_predictions)
+                        ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
+                        if ap is not None:
+                            APs.append(ap)
+
+                    # Semantic grasp features
+                    # grasp affordance
+                    context_to_score = defaultdict(list)
+                    labels = []
+                    for id in train_object_ids:
+                        semantic_object_data = semantic_objects_data[id]
+                        for instance in semantic_object_data:
+                            score = instance[0]
+                            context = instance[1]
+                            context_to_score[context].append(score)
+
+                    for context in context_to_score:
+                        context_to_score[context] = sum(context_to_score[context]) * 1.0 / len(context_to_score[context])
+
+                    # Test
+                    for id in range(num_objects):
+                        if id in train_object_ids:
+                            continue
+
+                        semantic_object_data = semantic_objects_data[id]
+                        Y_test = []
+                        Y_probs = []
+                        for instance in semantic_object_data:
+                            score = instance[0]
+                            context = instance[1]
+                            if context not in context_to_score:
+                                prob = 0
+                            else:
+                                prob = context_to_score[context]
+                            Y_test.append(score)
+                            Y_probs.append(prob)
+
+                        Y_test = np.array(Y_test)
+                        Y_probs = np.array(Y_probs)
+
+                        # calculate AP
+                        sort_indices = np.argsort(Y_probs)[::-1]
+                        Y_probs = Y_probs[sort_indices]
+                        Y_test = Y_test[sort_indices]
+
+
+                        num_corrects = 0.0
+                        num_predictions = 0.0
+                        total_precisions = []
+                        for i in range(len(Y_test)):
+                            num_predictions += 1
+                            if Y_test[i] == 1:
+                                num_corrects += 1
+                                total_precisions.append(num_corrects / num_predictions)
+                        ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(
+                            total_precisions) > 0 else None
+                        if ap is not None:
+                            APs_1.append(ap)
+
+                if APs:
+                    MAP = np.average(APs)
+                    print("MAP:", MAP)
+                    map_scores[ti, oi] = MAP
+
+                if APs_1:
+                    MAP = np.average(APs_1)
+                    print("MAP:", MAP)
+                    map_scores_1[ti, oi] = MAP
+
+        map_scores = pd.DataFrame(map_scores, index=BaseFeaturesModel.TASKS, columns=BaseFeaturesModel.OBJECTS)
+        map_scores_1 = pd.DataFrame(map_scores_1, index=BaseFeaturesModel.TASKS, columns=BaseFeaturesModel.OBJECTS)
+        print(map_scores)
+        print(map_scores_1)
 
 
 def train_classifier_logistic(X_train, X_test, Y_train, Y_test):
