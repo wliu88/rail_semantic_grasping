@@ -3,14 +3,13 @@
 
 import rospy
 
-from rail_semantic_grasping.base_features_model import BaseFeaturesModel
+from rail_semantic_grasping.base_features_collection import BaseFeaturesCollection
 
 
 def main():
-    rospy.init_node('base_features_model')
-    bfm = BaseFeaturesModel()
+    rospy.init_node('base_features_collection')
+    bfm = BaseFeaturesCollection()
     bfm.compute_features()
-    bfm.run_knn()
     rospy.spin()
 
 

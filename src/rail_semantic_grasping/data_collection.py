@@ -231,199 +231,50 @@ class DataCollection:
         rospy.loginfo("All objects has finished labeling. Exiting!")
         exit()
 
-    def visualize_grasps(self):
-        """
-        This method is used for visualizing labeled grasps.
-
-        :return:
-        """
-        # grab all sessions in the labeled data dir
-        session_dirs = glob.glob(os.path.join(self.labeled_data_dir, "*"))
-
-        for session_dir in session_dirs:
-            object_files = glob.glob(os.path.join(session_dir, "*.pkl"))
-
-            # iterate through objects
-            for object_file in object_files:
-                with open(object_file, "rb") as fh:
-                    semantic_objects = pickle.load(fh)
-                key = raw_input("Proceed with semantic objects: {}? y/n ".format(object_file))
-                if key != "y":
-                    continue
-
-                # visualize semantic object
-                markers = MarkerArray()
-                # assume there is only one object in the list
-                rospy.loginfo("{}".format(len(semantic_objects.objects)))
-                if not semantic_objects.objects:
-                    continue
-                semantic_object = semantic_objects.objects[0]
-                for semantic_part in semantic_object.parts:
-                    markers.markers.append(semantic_part.marker)
-                    markers.markers.append(semantic_part.text_marker)
-                self.markers_pub.publish(markers)
-
-                # iterate through grasps
-                if not semantic_object.grasps:
-                    continue
-                rospy.loginfo("Current object has {} grasps".format(len(semantic_object.grasps)))
-                for gi, semantic_grasp in enumerate(semantic_object.grasps):
-                    pose_stamped = PoseStamped()
-                    pose_stamped.header.frame_id = semantic_objects.header.frame_id
-                    pose_stamped.pose = semantic_grasp.grasp_pose
-                    self.grasp_pub.publish(pose_stamped)
-                    print(semantic_grasp.score)
-                    rospy.loginfo("Grasp No.{} on the part with affordance {} is semantically correct? {}".format(gi, semantic_grasp.grasp_part_affordance, semantic_grasp.score))
-                    key = raw_input("enter to continue")
-
-        rospy.loginfo("All objects has finished visualizing. Exiting!")
-        exit()
-
-    def summarize_grasps(self):
-        """
-        This method is used for visualizing labeled grasps.
-
-        :return:
-        """
-        TEST_RATIO = 0.7
-
-        # grab all sessions in the labeled data dir
-        session_dirs = glob.glob(os.path.join(self.labeled_data_dir, "*"))
-
-        for session_dir in session_dirs:
-            object_files = glob.glob(os.path.join(session_dir, "*.pkl"))
-
-            # mapping from (object, task, material, affordance) to sum score
-
-            preference_table_raw = {}
-
-            # iterate through objects
-            for object_file in object_files:
-                with open(object_file, "rb") as fh:
-                    semantic_objects = pickle.load(fh)
-                    # assume only one object in the list
-                    semantic_object = semantic_objects.objects[0]
-
-                    obj_cls = semantic_object.name
-
-                    # for part in semantic_object.parts:
-                    #     part_mat = part.material
-                    #     part_aff = part.affordance
-
-                    for semantic_grasp in semantic_object.labeled_grasps:
-
-                        if np.random.random() > (1 - TEST_RATIO):
-                            continue
-
-                        task = semantic_grasp.task
-                        part_aff = semantic_grasp.grasp_part_affordance
-                        part_mat = semantic_grasp.grasp_part_material
-                        score = int(semantic_grasp.score)
-                        if score == 0:
-                            score = -1
-
-                        context = (obj_cls, task, part_aff, part_mat)
-
-                        if context not in preference_table_raw:
-                            preference_table_raw[context] = []
-                        preference_table_raw[context].append(score)
-
-            # 1. Object
-            # a mapping from object to task to affordance to material to score
-            object_preference_table = {}
-            for context in preference_table_raw:
-                object = context[0]
-                if object not in object_preference_table:
-                    object_preference_table[object] = {}
-
-                task = context[1]
-                if task not in object_preference_table[object]:
-                    object_preference_table[object][task] = {}
-
-                affordance = context[2]
-                if affordance not in object_preference_table[object][task]:
-                    object_preference_table[object][task][affordance] = {}
-
-                material = context[3]
-                if affordance not in object_preference_table[object][task][affordance]:
-                    object_preference_table[object][task][affordance][material] = 0
-
-                object_preference_table[object][task][affordance][material] = sum(preference_table_raw[context]) * 1.0 / len(preference_table_raw[context])
-
-            print("There are {} contexts".format(len(preference_table_raw)))
-            context_occurances = []
-            for context in preference_table_raw:
-                context_occurances.append(len(preference_table_raw[context]))
-            print("There are {} instances on average for each context".format(sum(context_occurances)*1.0/len(context_occurances)))
-
-            # print
-            # for object in object_preference_table:
-            #     print("#"*100)
-            #     print("Object: " + object)
-            #     for task in object_preference_table[object]:
-            #         print("-" * 50)
-            #         print("Task: " + task)
-            #         for affordance in object_preference_table[object][task]:
-            #             if affordance == "None":
-            #                 print("\nAffordance: Unknown")
-            #             else:
-            #                 print("\nAffordance: " + affordance)
-            #             for material in object_preference_table[object][task][affordance]:
-            #                 if material == "":
-            #                     print("\tUnknown: " + str(object_preference_table[object][task][affordance][material]))
-            #                 else:
-            #                     print("\t"+ material + ": " + str(object_preference_table[object][task][affordance][material]))
-
-            total_correct = 0
-            total_prediction = 0
-            for object_file in object_files:
-                with open(object_file, "rb") as fh:
-                    semantic_objects = pickle.load(fh)
-                    # assume only one object in the list
-                    semantic_object = semantic_objects.objects[0]
-                    obj_cls = semantic_object.name
-                    for semantic_grasp in semantic_object.labeled_grasps:
-                        total_prediction += 1
-
-                        task = semantic_grasp.task
-                        part_aff = semantic_grasp.grasp_part_affordance
-                        part_mat = semantic_grasp.grasp_part_material
-                        score = int(semantic_grasp.score)
-                        if score == 0:
-                            score = -1
-
-                        prediction = np.random.random() * 2 - 1
-                        try:
-                            prediction = object_preference_table[obj_cls][task][part_aff][part_mat]
-                        except:
-                            pass
-
-                        if abs(score - prediction) < 1:
-                            total_correct += 1
-            print("Frequency baseline accuracy: {}".format(total_correct*1.0/total_prediction))
-
-            total_correct = 0
-            total_prediction = 0
-            for object_file in object_files:
-                with open(object_file, "rb") as fh:
-                    semantic_objects = pickle.load(fh)
-                    # assume only one object in the list
-                    semantic_object = semantic_objects.objects[0]
-                    obj_cls = semantic_object.name
-                    for semantic_grasp in semantic_object.labeled_grasps:
-                        total_prediction += 1
-
-                        task = semantic_grasp.task
-                        part_aff = semantic_grasp.grasp_part_affordance
-                        part_mat = semantic_grasp.grasp_part_material
-                        score = int(semantic_grasp.score)
-                        if score == 0:
-                            score = -1
-
-                        prediction = np.random.random() * 2 - 1
-                        if abs(score - prediction) < 1:
-                            total_correct += 1
-            print("Random baseline accuracy: {}".format(total_correct * 1.0 / total_prediction))
-
-
-        exit()
+    # def visualize_grasps(self):
+    #     """
+    #     This method is used for visualizing labeled grasps.
+    #
+    #     :return:
+    #     """
+    #     # grab all sessions in the labeled data dir
+    #     session_dirs = glob.glob(os.path.join(self.labeled_data_dir, "*"))
+    #
+    #     for session_dir in session_dirs:
+    #         object_files = glob.glob(os.path.join(session_dir, "*.pkl"))
+    #
+    #         # iterate through objects
+    #         for object_file in object_files:
+    #             with open(object_file, "rb") as fh:
+    #                 semantic_objects = pickle.load(fh)
+    #             key = raw_input("Proceed with semantic objects: {}? y/n ".format(object_file))
+    #             if key != "y":
+    #                 continue
+    #
+    #             # visualize semantic object
+    #             markers = MarkerArray()
+    #             # assume there is only one object in the list
+    #             rospy.loginfo("{}".format(len(semantic_objects.objects)))
+    #             if not semantic_objects.objects:
+    #                 continue
+    #             semantic_object = semantic_objects.objects[0]
+    #             for semantic_part in semantic_object.parts:
+    #                 markers.markers.append(semantic_part.marker)
+    #                 markers.markers.append(semantic_part.text_marker)
+    #             self.markers_pub.publish(markers)
+    #
+    #             # iterate through grasps
+    #             if not semantic_object.grasps:
+    #                 continue
+    #             rospy.loginfo("Current object has {} grasps".format(len(semantic_object.grasps)))
+    #             for gi, semantic_grasp in enumerate(semantic_object.grasps):
+    #                 pose_stamped = PoseStamped()
+    #                 pose_stamped.header.frame_id = semantic_objects.header.frame_id
+    #                 pose_stamped.pose = semantic_grasp.grasp_pose
+    #                 self.grasp_pub.publish(pose_stamped)
+    #                 print(semantic_grasp.score)
+    #                 rospy.loginfo("Grasp No.{} on the part with affordance {} is semantically correct? {}".format(gi, semantic_grasp.grasp_part_affordance, semantic_grasp.score))
+    #                 key = raw_input("enter to continue")
+    #
+    #     rospy.loginfo("All objects has finished visualizing. Exiting!")
+    #     exit()

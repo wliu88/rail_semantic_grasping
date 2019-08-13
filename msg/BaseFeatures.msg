@@ -29,7 +29,7 @@ float64 grasp_color_entropy
 int32 label
 string task
 
-# Size:
+# FEATURE DIMENSIONS:
 # object_spherical_resemblance: 1
 # object_cylindrical_resemblance: 1
 # object_elongatedness: 2
