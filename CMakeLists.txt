@@ -81,7 +81,6 @@ catkin_python_setup()
 ## Generate services in the 'srv' folder
  add_service_files(
    FILES
-   SegmentSemanticObjects.srv
    ComputeBaseFeatures.srv
  )
 
@@ -164,7 +163,6 @@ include_directories(include
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/rail_semantic_grasping_node.cpp)
-add_executable(object_semantic_segmentation_node nodes/object_semantic_segmentation_node.cpp src/object_semantic_segmentation.cpp)
 add_executable(base_features_computation_node nodes/base_features_computation_node.cpp src/base_features_computation.cpp)
 
 ## Rename C++ executable without prefix
@@ -176,7 +174,6 @@ add_executable(base_features_computation_node nodes/base_features_computation_no
 ## Add cmake target dependencies of the executable
 ## same as for the library above
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-add_dependencies(object_semantic_segmentation_node ${PROJECT_NAME}_generate_messages_cpp rail_manipulation_msgs_generate_messages_cpp)
 add_dependencies(base_features_computation_node ${PROJECT_NAME}_generate_messages_cpp rail_manipulation_msgs_generate_messages_cpp)
 
 
@@ -184,7 +181,6 @@ add_dependencies(base_features_computation_node ${PROJECT_NAME}_generate_message
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(object_semantic_segmentation_node ${boost_LIBRARIES} ${catkin_LIBRARIES})
 target_link_libraries(base_features_computation_node ${boost_LIBRARIES} ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 
 #############

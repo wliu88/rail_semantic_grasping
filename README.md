@@ -7,3 +7,15 @@ data.
 ## Note
 This package is originally created for ROS melodic. However, it can still be compiled and used in ROS kinetic by adding
 the line `add_compile_options(-std=c++11)` to the top-level `CMakeLists.txt` of the workspace.
+
+## Run Grasp Collection 
+1. run `roscore`
+2. run `rosrun rail_semantic_grasping grasp_collection_node.py`
+3. run `rviz`
+4. follow the prompt and visualization in rviz
+
+## Run Base Model
+1. run `roscore`
+2. run `rosrun rail_semantic_graspingase_features_computation_node` to start the node for computing object base features
+3. run `rosrun rail_semantic_grasping base_features_model_node.py` to learn the model
+
