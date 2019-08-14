@@ -1,43 +1,32 @@
 #!/usr/bin/env python
 
 import os
-import shutil
 import glob
-from datetime import datetime
 import pickle
-import copy
-import numpy as np
-from collections import defaultdict, OrderedDict
-import pandas as pd
 
 import rospy
 import rospkg
 
-import cv2
-import cv_bridge
-
 from rail_semantic_grasping.msg import SemanticObjectList, SemanticGrasp
 from geometry_msgs.msg import Pose, Point, PoseStamped
 from sensor_msgs.msg import Image, PointCloud2
-# from rail_part_affordance_detection.msg import ObjectPartAffordance
-# from rail_part_affordance_detection.srv import DetectAffordances, DetectAffordancesResponse
 from visualization_msgs.msg import Marker, MarkerArray
 from rail_semantic_grasping.srv import ComputeBaseFeatures
 
-from sklearn import preprocessing
-from sklearn.metrics import confusion_matrix
-from sklearn.utils import shuffle
-from sklearn.externals import joblib
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import SVC
-from sklearn.ensemble import GradientBoostingClassifier
-
-from pylmnn import LargeMarginNearestNeighbor as LMNN
+# from sklearn import preprocessing
+# from sklearn.metrics import confusion_matrix
+# from sklearn.utils import shuffle
+# from sklearn.externals import joblib
+# from sklearn.model_selection import train_test_split
+# from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+# from sklearn.neighbors import KNeighborsClassifier
+# from sklearn.linear_model import LogisticRegressionCV
+# from sklearn.tree import DecisionTreeClassifier
+# from sklearn.ensemble import RandomForestClassifier
+# from sklearn.svm import SVC
+# from sklearn.ensemble import GradientBoostingClassifier
+#
+# from pylmnn import LargeMarginNearestNeighbor as LMNN
 
 
 class BaseFeaturesCollection:
