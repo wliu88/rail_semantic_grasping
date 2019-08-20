@@ -18,9 +18,7 @@ class DataReader:
         self.base_features_dir = os.path.join(self.data_dir, "base_features")
 
         # each data point has form:
-        # ((features, histograms, descriptor),
-        #  (grasp_affordance, grasp_material),
-        #  ((part_affordance, part_material)...))
+        # ((features, histograms, descriptor),(grasp_affordance, grasp_material),((part_affordance, part_material)...))
         self.data = []
 
         # this is used to group pointers of raw data based on object classes and tasks
@@ -57,6 +55,7 @@ class DataReader:
 
                 # extract features
                 object_class = semantic_object.name
+                object_id = len(self.grouped_data_indices[DataSpecification.TASKS[0]][object_class])
                 for grasp, base_features in zip(semantic_object.labeled_grasps, base_features_list):
                     # check grasp and base features are matched correctly
                     assert base_features.task == grasp.task
@@ -101,7 +100,6 @@ class DataReader:
 
                     # add to data list and data indices
                     data_id = len(self.data)
-                    object_id = len(self.grouped_data_indices[task][object_class])
                     self.data.append((label,
                                       extracted_base_features,
                                       extracted_grasp_semantic_features,
@@ -139,8 +137,8 @@ class DataReader:
 
                 # Repeatedly create split
                 for test_iter in range(repeat_num):
-                    test_object_ids = np.random.choice(num_instances, num_test, replace=False)
-                    train_object_ids = np.array(list(set(range(num_instances)) - set(test_pos)))
+                    test_object_ids = np.random.choice(object_instance_ids, num_test, replace=False)
+                    train_object_ids = np.array(list(set(object_instance_ids) - set(test_object_ids)))
 
                     train_ids = []
                     test_ids = []
@@ -175,7 +173,6 @@ def load_pickle(pickle_file):
 
 if __name__ == "__main__":
     data_reader = DataReader("/home/weiyu/catkin_ws/src/rail_semantic_grasping/data")
-    data_reader.read_data()
     data_reader.prepare_data_1()
 
 
