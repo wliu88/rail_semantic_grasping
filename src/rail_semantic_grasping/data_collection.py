@@ -31,6 +31,13 @@ class DataCollection:
     """
 
     TASKS = ["pour", "scoop", "stab", "cut", "lift", "hammer", "handover"]
+
+    STATES = {"cup": ["hot", "cold", "empty"],
+              "bowl": ["filled", "empty"],
+              "spatula": ["has stuff", "empty"],
+              "bottle": ["lid on", "lid off"],
+              "pan": ["hot", "empty"]}
+
     TASK_DESCRIPTIONS = {"pour": "Grasp the object to pour the liquid out",
                          "scoop": "Grasp the object to scoop something",
                          "stab": "Grasp the object to stab",
@@ -38,6 +45,7 @@ class DataCollection:
                          "lift": "Grasp the object to used it for lifting something up. For example, use the spatula to lift an fried egg up.",
                          "hammer": "Grasp the object to hammer a nail",
                          "handover": "Grasp the object to hand it over to someone"}
+
     NUM_SAMPLE_GRASPS = 20
 
     def __init__(self, collect_objects=True):
@@ -132,6 +140,7 @@ class DataCollection:
                 if not semantic_objects.objects:
                     continue
                 semantic_object = semantic_objects.objects[0]
+                object_class = semantic_object.name
                 marker = semantic_object.marker
                 for semantic_part in semantic_object.parts:
                     markers.markers.append(semantic_part.marker)
@@ -150,56 +159,84 @@ class DataCollection:
                 sampled_grasps = np.random.choice(semantic_object.grasps, DataCollection.NUM_SAMPLE_GRASPS,
                                                   replace=False).tolist()
                 rospy.loginfo("Sample {} grasps for labeling".format(len(sampled_grasps)))
-                rospy.loginfo("*" * 100)
-                rospy.loginfo("*" * 100)
 
                 labeled_grasps = []
                 skip_object = False
+
                 # label grasp preferences for each task
                 for task in DataCollection.TASKS:
 
-                    rospy.loginfo("For task: {}".format(task))
-                    rospy.loginfo("Task description: '{}'".format(DataCollection.TASK_DESCRIPTIONS[task]))
-                    rospy.loginfo("*" * 100)
-                    rospy.loginfo("*" * 100)
-                    grasps_for_task = copy.deepcopy(sampled_grasps)
+                    for state in DataCollection.STATES[object_class]:
 
-                    for gi, semantic_grasp in enumerate(grasps_for_task):
-                        semantic_grasp.task = task
-                        pose_stamped = PoseStamped()
-                        pose_stamped.header.frame_id = semantic_objects.header.frame_id
-                        pose_stamped.pose = semantic_grasp.grasp_pose
-                        self.grasp_pub.publish(pose_stamped)
-                        rospy.loginfo("Grasp No.{}/{} is on the part with affordance {} and material {}".format(gi+1,
-                                      DataCollection.NUM_SAMPLE_GRASPS, semantic_grasp.grasp_part_affordance,
-                                      semantic_grasp.grasp_part_material))
-                        valid = False
-                        while not valid:
-                            key = raw_input("Is this grasp semantically correct? absolutely(press 1) / ok(press 2) / definitely not(press 3) ")
-                            if key == "1":
-                                semantic_grasp.score = 1
-                                valid = True
-                            elif key == "3":
-                                semantic_grasp.score = -1
-                                valid = True
-                            elif key == "2" or key == "":
-                                # Important: score is initialized to 0
-                                semantic_grasp.score = 0
-                                valid = True
-                            elif key == "q":
-                                skip_object = True
+                        rospy.loginfo("*" * 100)
+                        rospy.loginfo("")
+                        rospy.loginfo("For task: {}".format(task))
+                        rospy.loginfo("")
+                        rospy.loginfo("For state: {}".format(state))
+                        rospy.loginfo("")
+                        rospy.loginfo("*" * 100)
+                        grasps_for_task = copy.deepcopy(sampled_grasps)
+
+                        # define the context of the grasps
+                        context = "_".join([task, state])
+                        skip_context = 0
+                        for gi, semantic_grasp in enumerate(grasps_for_task):
+                            semantic_grasp.task = context
+                            pose_stamped = PoseStamped()
+                            pose_stamped.header.frame_id = semantic_objects.header.frame_id
+                            pose_stamped.pose = semantic_grasp.grasp_pose
+                            self.grasp_pub.publish(pose_stamped)
+                            rospy.loginfo("Grasp No.{}/{} is on the part with affordance {} and material {}".format(gi+1,
+                                          DataCollection.NUM_SAMPLE_GRASPS, semantic_grasp.grasp_part_affordance,
+                                          semantic_grasp.grasp_part_material))
+
+                            if skip_context:
+                                if skip_context == 2:
+                                    semantic_grasp.score = 0
+                                elif skip_context == 3:
+                                    semantic_grasp.score = -1
+                                continue
+
+                            valid = False
+                            while not valid:
+                                key = raw_input("Is this grasp semantically correct? absolutely(press 1) / ok(press 2) / definitely not(press 3) ")
+                                if key == "1":
+                                    semantic_grasp.score = 1
+                                    valid = True
+                                elif key == "3":
+                                    semantic_grasp.score = -1
+                                    valid = True
+                                elif key == "2" or key == "":
+                                    # Important: score is initialized to 0
+                                    semantic_grasp.score = 0
+                                    valid = True
+                                elif key == "q":
+                                    skip_object = True
+                                    break
+                                elif key == "22":
+                                    rospy.loginfo("All grasps for this context will be labeled as semantically ok!")
+                                    skip_context = 2
+                                    semantic_grasp.score = 0
+                                    valid = True
+                                elif key == "33":
+                                    rospy.loginfo("All grasps for this context will be labeled as semantically incorrect!")
+                                    skip_context = 3
+                                    semantic_grasp.score = -1
+                                    valid = True
+                                else:
+                                    rospy.loginfo("Not a valid input, try again")
+                            if skip_object:
                                 break
-                            else:
-                                rospy.loginfo("Not a valid input, try again")
+
+                        labeled_grasps += grasps_for_task
+
                         if skip_object:
                             break
-
                     if skip_object:
                         break
-                    labeled_grasps += grasps_for_task
-
                 if skip_object:
                     continue
+
                 semantic_object.labeled_grasps = labeled_grasps
 
                 rospy.loginfo("Saving labeled grasps...\n")
