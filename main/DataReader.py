@@ -8,8 +8,6 @@ from rail_semantic_grasping.msg import SemanticObjectList, SemanticObject, Seman
 import DataSpecification
 
 
-# ToDo: Debug!!!!!
-
 class DataReader:
 
     def __init__(self, data_dir):
@@ -64,6 +62,10 @@ class DataReader:
                     task = base_features.task
                     label = base_features.label
 
+                    # Important: because we use the task field in semantic grasp msg definition to include both the task
+                    #            and the object state. We need to get them back here.
+                    task, object_state = task.split("_")
+
                     # extract base features
                     features = []
                     features.append(base_features.object_spherical_resemblance)
@@ -91,6 +93,7 @@ class DataReader:
                     extracted_grasp_semantic_features = (grasp_affordance, grasp_material)
 
                     # extract object semantic parts
+                    # extracted_object_semantic_parts are a tuple of variable length depending on the number of parts
                     extracted_object_semantic_parts = []
                     for part in semantic_object.parts:
                         part_affordance = part.affordance
@@ -100,30 +103,34 @@ class DataReader:
 
                     # add to data list and data indices
                     data_id = len(self.data)
+
+                    # Important: here is the definition of each data point
                     self.data.append((label,
+                                      object_state,
                                       extracted_base_features,
                                       extracted_grasp_semantic_features,
                                       extracted_object_semantic_parts))
+
                     if object_id not in self.grouped_data_indices[task][object_class]:
                         self.grouped_data_indices[task][object_class][object_id] = []
                     self.grouped_data_indices[task][object_class][object_id].append(data_id)
 
     def prepare_data_1(self, test_percentage=0.3, repeat_num=10):
         """
-        This method is used to split data for experiment 1
+        This method is used to split data for experiment 1: semantic grasp transfer between object instances
         Instances of each object class for each task will be split into train and test
 
-        Note: the output data should be a list of (train, test) tuples. Each tuple represent data for an object class.
-              The algorithm needs to train a seperate model and test the model for each tuple.
+        Note: the output data should be a list of (description, train_ids, test_ids) tuples.
+              Each tuple represent data for an object class.
+              The algorithm needs to train a separate model and test the model for each tuple.
 
         :return:
         """
-
         # each experiment is a tuple of (description, train_ids, test_ids)
         experiments = []
 
-        for ti, task in enumerate(self.grouped_data_indices):
-            for oi, object_class in enumerate(self.grouped_data_indices[task]):
+        for task in self.grouped_data_indices:
+            for object_class in self.grouped_data_indices[task]:
                 print("Preparing split for task {} and object {}".format(task, object_class))
 
                 num_instances = len(self.grouped_data_indices[task][object_class])
@@ -139,6 +146,7 @@ class DataReader:
                 for test_iter in range(repeat_num):
                     test_object_ids = np.random.choice(object_instance_ids, num_test, replace=False)
                     train_object_ids = np.array(list(set(object_instance_ids) - set(test_object_ids)))
+                    # print(train_object_ids)
 
                     train_ids = []
                     test_ids = []
@@ -151,6 +159,134 @@ class DataReader:
 
         for exp in experiments:
             print(exp)
+
+        return experiments
+
+    def prepare_data_2(self):
+        """
+        This method is used to split data for experiment 2: semantic grasp transfer between object classes
+        Object classes for each task will be split into train and test
+
+        :param test_percentage:
+        :param repeat_num:
+        :return:
+        """
+        # each experiment is a tuple of (description, train_ids, test_ids)
+        experiments = []
+
+        for ti, task in enumerate(self.grouped_data_indices):
+            print("Preparing split for task {}".format(task))
+
+            # perform leave one out test. test_object_class is the object class that is left out.
+            for test_object_class in self.grouped_data_indices[task]:
+                train_ids = []
+                test_ids = []
+
+                for object_id in self.grouped_data_indices[task][test_object_class]:
+                    test_ids.extend([data_id for data_id in self.grouped_data_indices[task][test_object_class][object_id]])
+
+                for object_class in self.grouped_data_indices[task]:
+                    if object_class == test_object_class:
+                        continue
+                    for object_id in self.grouped_data_indices[task][object_class]:
+                        train_ids.extend(
+                            [data_id for data_id in self.grouped_data_indices[task][object_class][object_id]])
+
+                experiments.append(("{}:{}".format(task, test_object_class), train_ids, test_ids))
+
+        for exp in experiments:
+            print(exp)
+
+        return experiments
+
+    def prepare_data_3(self):
+        """
+        This method is used to split data for experiment 3: semantic grasp transfer between tasks
+
+        :return:
+        """
+
+        # each experiment is a tuple of (description, train_ids, test_ids)
+        experiments = []
+
+        for test_task in self.grouped_data_indices:
+            for test_object_class in self.grouped_data_indices[test_task]:
+                print("Preparing split for testing task {} object {}".format(test_task, test_object_class))
+                train_ids = []
+                test_ids = []
+
+                for object_id in self.grouped_data_indices[test_task][test_object_class]:
+                    test_ids.extend([data_id for data_id in self.grouped_data_indices[test_task][test_object_class][object_id]])
+
+                for task in self.grouped_data_indices:
+                    for object_class in self.grouped_data_indices[task]:
+                        if task == test_task and object_class == test_object_class:
+                            continue
+
+                        for object_id in self.grouped_data_indices[task][object_class]:
+                            train_ids.extend([data_id for data_id in
+                                             self.grouped_data_indices[task][object_class][object_id]])
+
+                experiments.append(("{}:{}".format(test_task, test_object_class), train_ids, test_ids))
+
+        for exp in experiments:
+            print(exp)
+
+        return experiments
+
+    def prepare_data_4(self, repeat_num=10, test_percentage=0.7):
+        """
+        This method is used to split data for experiment 4: semantic grasp transfer between
+
+        :return:
+        """
+
+        # self.grouped_data_indices[task][object_class][object_id].append(data_id)
+
+
+        # each experiment is a tuple of (description, train_ids, test_ids)
+        experiments = []
+
+        # repeatedly create split
+        for test_iter in range(repeat_num):
+            print("Preparing split for run {}".format(test_iter))
+            train_ids = []
+            test_ids = []
+
+            # an instance in this case is the set of grasps for an object instance for a task
+            instances = []
+            for task in self.grouped_data_indices:
+                for object_class in self.grouped_data_indices[task]:
+                    for object_id in self.grouped_data_indices[task][object_class]:
+                        instances.append(":".join([task, object_class, str(object_id)]))
+
+            num_instances = len(instances)
+            num_test = int(num_instances * test_percentage)
+            print("Number of instances:", num_instances)
+            print("Number of test instances:", num_test)
+            if not num_test:
+                print("Not enough instance to test")
+                experiments.append(("{}".format(test_iter), (), ()))
+
+            test_instances = list(np.random.choice(instances, num_test, replace=False))
+            train_instances = list(set(instances) - set(test_instances))
+
+            for instance in test_instances:
+                task, object_class, object_id = instance.split(":")
+                object_id = int(object_id)
+                test_ids.extend(self.grouped_data_indices[task][object_class][object_id])
+
+            for instance in train_instances:
+                task, object_class, object_id = instance.split(":")
+                object_id = int(object_id)
+                train_ids.extend(self.grouped_data_indices[task][object_class][object_id])
+
+            experiments.append(("{}".format(test_iter), train_ids, test_ids))
+
+        for exp in experiments:
+            print(exp)
+
+        return experiments
 
 
 def load_pickle(pickle_file):
@@ -169,12 +305,6 @@ def load_pickle(pickle_file):
         print('Unable to load data ', pickle_file, ':', e)
         raise
     return pickle_data
-
-
-if __name__ == "__main__":
-    data_reader = DataReader("/home/weiyu/catkin_ws/src/rail_semantic_grasping/data")
-    data_reader.prepare_data_1()
-
 
 
 

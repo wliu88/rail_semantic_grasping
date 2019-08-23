@@ -1,0 +1,23 @@
+Random:
+Positive preference MAP:
+ 0.1254992307630863
+Negative preference MAP:
+ 0.7901039051307263
+
+KNN:
+Positive preference MAP:
+ 0.1185169932060984
+Negative preference MAP:
+ 0.795895804280247
+
+LR:
+Positive preference MAP:
+ 0.12478460607336579
+Negative preference MAP:
+ 0.7969647703237617
+
+Frequency Table:
+Positive preference MAP:
+ 0.17176379380590942
+Negative preference MAP:
+ 0.8629459708825321
