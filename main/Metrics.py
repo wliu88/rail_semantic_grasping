@@ -7,6 +7,47 @@ from collections import OrderedDict
 import DataSpecification
 
 
+def compute_aps(obj_gts, obj_preds):
+    pos_ap = None
+    neg_ap = None
+
+    # compute ranking score for positive preference
+    if 1 in obj_gts:
+        pos_preds = obj_preds[:, -1]
+        sort_indices = np.argsort(pos_preds)[::-1]
+        ranked_gts = obj_gts[sort_indices]
+        print("pos:\n", ranked_gts)
+
+        num_corrects = 0.0
+        num_predictions = 0.0
+        total_precisions = []
+        for i in range(len(ranked_gts)):
+            num_predictions += 1
+            if ranked_gts[i] == 1:
+                num_corrects += 1
+                total_precisions.append(num_corrects / num_predictions)
+        pos_ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
+
+    # compute ranking score for negative preference
+    if -1 in obj_gts:
+        neg_preds = obj_preds[:, 0]
+        sort_indices = np.argsort(neg_preds)[::-1]
+        ranked_gts = obj_gts[sort_indices]
+        print("neg:\n", ranked_gts)
+
+        num_corrects = 0.0
+        num_predictions = 0.0
+        total_precisions = []
+        for i in range(len(ranked_gts)):
+            num_predictions += 1
+            if ranked_gts[i] == -1:
+                num_corrects += 1
+                total_precisions.append(num_corrects / num_predictions)
+        neg_ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
+
+    return pos_ap, neg_ap
+
+
 def score_1(results):
     # this is used to group raw scores based on object classes and tasks
     raw_scores = OrderedDict()
@@ -21,46 +62,18 @@ def score_1(results):
         description, gts, preds = result
         task, object_class, iter = description.split(":")
 
-        preds, gts = np.array(preds), np.array(gts)
-
         raw_scores[task][object_class][2] = len(gts)
 
-        # compute ranking score for positive preference
-        if 1 in gts:
-            pos_preds = preds[:, -1]
-            sort_indices = np.argsort(pos_preds)[::-1]
-            ranked_gts = gts[sort_indices]
-            print("pos:\n", ranked_gts)
+        for obj_preds, obj_gts in zip(preds, gts):
+            obj_preds, obj_gts = np.array(obj_preds), np.array(obj_gts)
 
-            num_corrects = 0.0
-            num_predictions = 0.0
-            total_precisions = []
-            for i in range(len(ranked_gts)):
-                num_predictions += 1
-                if ranked_gts[i] == 1:
-                    num_corrects += 1
-                    total_precisions.append(num_corrects / num_predictions)
-            ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
-            raw_scores[task][object_class][0].append(ap)
+            pos_ap, neg_ap = compute_aps(obj_gts, obj_preds)
+            if pos_ap is not None:
+                raw_scores[task][object_class][0].append(pos_ap)
+            if neg_ap is not None:
+                raw_scores[task][object_class][1].append(neg_ap)
 
-        # compute ranking score for negative preference
-        if -1 in gts:
-            neg_preds = preds[:, 0]
-            sort_indices = np.argsort(neg_preds)[::-1]
-            ranked_gts = gts[sort_indices]
-            print("neg:\n", ranked_gts)
-
-            num_corrects = 0.0
-            num_predictions = 0.0
-            total_precisions = []
-            for i in range(len(ranked_gts)):
-                num_predictions += 1
-                if ranked_gts[i] == -1:
-                    num_corrects += 1
-                    total_precisions.append(num_corrects / num_predictions)
-            ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
-            raw_scores[task][object_class][1].append(ap)
-    print(raw_scores)
+    # print(raw_scores)
 
     # format scores for better visualization
     pos_map = np.full([len(DataSpecification.OBJECTS), len(DataSpecification.TASKS)], np.nan)
@@ -105,46 +118,16 @@ def score_2(results):
         description, gts, preds = result
         task, object_class = description.split(":")
 
-        preds, gts = np.array(preds), np.array(gts)
-
         raw_scores[task][object_class][2] = len(gts)
 
-        # compute ranking score for positive preference
-        if 1 in gts:
-            pos_preds = preds[:, -1]
-            sort_indices = np.argsort(pos_preds)[::-1]
-            ranked_gts = gts[sort_indices]
-            # print("pos:\n", ranked_gts)
+        for obj_preds, obj_gts in zip(preds, gts):
+            obj_preds, obj_gts = np.array(obj_preds), np.array(obj_gts)
 
-            num_corrects = 0.0
-            num_predictions = 0.0
-            total_precisions = []
-            for i in range(len(ranked_gts)):
-                num_predictions += 1
-                if ranked_gts[i] == 1:
-                    num_corrects += 1
-                    total_precisions.append(num_corrects / num_predictions)
-            ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
-            raw_scores[task][object_class][0].append(ap)
-
-        # compute ranking score for negative preference
-        if -1 in gts:
-            neg_preds = preds[:, 0]
-            sort_indices = np.argsort(neg_preds)[::-1]
-            ranked_gts = gts[sort_indices]
-            # print("neg:\n", ranked_gts)
-
-            num_corrects = 0.0
-            num_predictions = 0.0
-            total_precisions = []
-            for i in range(len(ranked_gts)):
-                num_predictions += 1
-                if ranked_gts[i] == -1:
-                    num_corrects += 1
-                    total_precisions.append(num_corrects / num_predictions)
-            ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
-            raw_scores[task][object_class][1].append(ap)
-    # print(raw_scores)
+            pos_ap, neg_ap = compute_aps(obj_gts, obj_preds)
+            if pos_ap is not None:
+                raw_scores[task][object_class][0].append(pos_ap)
+            if neg_ap is not None:
+                raw_scores[task][object_class][1].append(neg_ap)
 
     # format scores for better visualization
     pos_map = np.full([len(DataSpecification.OBJECTS), len(DataSpecification.TASKS)], np.nan)
@@ -191,45 +174,17 @@ def score_3(results):
         description, gts, preds = result
         task, object_class = description.split(":")
 
-        preds, gts = np.array(preds), np.array(gts)
-
         raw_scores[task][object_class][2] = len(gts)
 
-        # compute ranking score for positive preference
-        if 1 in gts:
-            pos_preds = preds[:, -1]
-            sort_indices = np.argsort(pos_preds)[::-1]
-            ranked_gts = gts[sort_indices]
-            print("pos:\n", ranked_gts)
+        for obj_preds, obj_gts in zip(preds, gts):
+            obj_preds, obj_gts = np.array(obj_preds), np.array(obj_gts)
 
-            num_corrects = 0.0
-            num_predictions = 0.0
-            total_precisions = []
-            for i in range(len(ranked_gts)):
-                num_predictions += 1
-                if ranked_gts[i] == 1:
-                    num_corrects += 1
-                    total_precisions.append(num_corrects / num_predictions)
-            ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
-            raw_scores[task][object_class][0].append(ap)
+            pos_ap, neg_ap = compute_aps(obj_gts, obj_preds)
+            if pos_ap is not None:
+                raw_scores[task][object_class][0].append(pos_ap)
+            if neg_ap is not None:
+                raw_scores[task][object_class][1].append(neg_ap)
 
-        # compute ranking score for negative preference
-        if -1 in gts:
-            neg_preds = preds[:, 0]
-            sort_indices = np.argsort(neg_preds)[::-1]
-            ranked_gts = gts[sort_indices]
-            print("neg:\n", ranked_gts)
-
-            num_corrects = 0.0
-            num_predictions = 0.0
-            total_precisions = []
-            for i in range(len(ranked_gts)):
-                num_predictions += 1
-                if ranked_gts[i] == -1:
-                    num_corrects += 1
-                    total_precisions.append(num_corrects / num_predictions)
-            ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
-            raw_scores[task][object_class][1].append(ap)
     print(raw_scores)
 
     # format scores for better visualization
@@ -270,43 +225,15 @@ def score_4(results):
         description, gts, preds = result
         test_iter = description.split(":")
 
-        preds, gts = np.array(preds), np.array(gts)
+        for obj_preds, obj_gts in zip(preds, gts):
+            obj_preds, obj_gts = np.array(obj_preds), np.array(obj_gts)
 
-        # compute ranking score for positive preference
-        if 1 in gts:
-            pos_preds = preds[:, -1]
-            sort_indices = np.argsort(pos_preds)[::-1]
-            ranked_gts = gts[sort_indices]
-            print("pos:\n", ranked_gts)
+            pos_ap, neg_ap = compute_aps(obj_gts, obj_preds)
+            if pos_ap is not None:
+                raw_pos_scores.append(pos_ap)
+            if neg_ap is not None:
+                raw_neg_scores.append(neg_ap)
 
-            num_corrects = 0.0
-            num_predictions = 0.0
-            total_precisions = []
-            for i in range(len(ranked_gts)):
-                num_predictions += 1
-                if ranked_gts[i] == 1:
-                    num_corrects += 1
-                    total_precisions.append(num_corrects / num_predictions)
-            ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
-            raw_pos_scores.append(ap)
-
-        # compute ranking score for negative preference
-        if -1 in gts:
-            neg_preds = preds[:, 0]
-            sort_indices = np.argsort(neg_preds)[::-1]
-            ranked_gts = gts[sort_indices]
-            print("neg:\n", ranked_gts)
-
-            num_corrects = 0.0
-            num_predictions = 0.0
-            total_precisions = []
-            for i in range(len(ranked_gts)):
-                num_predictions += 1
-                if ranked_gts[i] == -1:
-                    num_corrects += 1
-                    total_precisions.append(num_corrects / num_predictions)
-            ap = sum(total_precisions) * 1.0 / len(total_precisions) if len(total_precisions) > 0 else None
-            raw_neg_scores.append(ap)
     print(raw_pos_scores)
     print(raw_neg_scores)
 

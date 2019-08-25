@@ -18,7 +18,8 @@ class FrequencyTableModel:
         """
         This method runs all experiments provided and reports the results
         results is in format (description, ground truth labels, prediction scores), where prediction scores is a
-        multi-dimensional array where each column represents the scores for each label.
+        multi-dimensional array where the first dimension represents the object instance, the second the grasps, the
+        third the score for each class label
 
         :param experiments:
         :return:
@@ -26,27 +27,28 @@ class FrequencyTableModel:
         results = []
 
         for experiment in experiments:
-            description, train_ids, test_ids = experiment
+            description, train_objs, test_objs = experiment
             print("\nRun experiment {}".format(description))
 
             # organize training and testing data
             for split in ["train", "test"]:
 
                 if split == "train":
-                    ids = train_ids
+                    objs = train_objs
                 elif split == "test":
-                    ids = test_ids
+                    objs = test_objs
 
                 labels = []
                 grasp_affordances = []
                 grasp_materials = []
 
-                for id in ids:
-                    label = data[id][0]
-                    extracted_grasp_semantic_features = data[id][3]
-                    grasp_affordances.append(extracted_grasp_semantic_features[0])
-                    grasp_materials.append(extracted_grasp_semantic_features[1])
-                    labels.append(label)
+                for obj in objs:
+                    for id in obj:
+                        label = data[id][0]
+                        extracted_grasp_semantic_features = data[id][3]
+                        grasp_affordances.append(extracted_grasp_semantic_features[0])
+                        grasp_materials.append(extracted_grasp_semantic_features[1])
+                        labels.append(label)
 
                 if split == "train":
                     if self.use_affordance and not self.use_material:
@@ -75,7 +77,7 @@ class FrequencyTableModel:
             print("train stats:", train_stats)
             print("test stats:", test_stats)
 
-            # learn the model
+            # learn the model: frequency table
             freq_table = defaultdict(list)
             for i in range(len(X_train)):
                 semantic_context = X_train[i]
@@ -93,6 +95,9 @@ class FrequencyTableModel:
                 for li, label_class in enumerate(label_classes):
                     Y_probs[i, li] = np.sum(observed_labels == label_class) * 1.0 / len(observed_labels)
 
+            # reshape
+            Y_probs = Y_probs.reshape([len(test_objs), -1, len(np.unique(Y_train))])
+            Y_test = Y_test.reshape([len(test_objs), -1])
             result = (description, Y_test.tolist(), Y_probs.tolist())
             results.append(result)
 

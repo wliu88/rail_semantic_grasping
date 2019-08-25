@@ -17,7 +17,8 @@ class RandomModel:
         """
         This method runs all experiments provided and reports the results
         results is in format (description, ground truth labels, prediction scores), where prediction scores is a
-        multi-dimensional array where each column represents the scores for each label.
+        multi-dimensional array where the first dimension represents the object instance, the second the grasps, the
+        third the score for each class label
 
         :param experiments:
         :return:
@@ -25,21 +26,22 @@ class RandomModel:
         results = []
 
         for experiment in experiments:
-            description, train_ids, test_ids = experiment
+            description, train_objs, test_objs = experiment
             print("\nRun experiment {}".format(description))
 
             # organize training and testing data
             for split in ["train", "test"]:
 
                 if split == "train":
-                    ids = train_ids
+                    objs = train_objs
                 elif split == "test":
-                    ids = test_ids
+                    objs = test_objs
 
                 labels = []
 
-                for id in ids:
-                    labels.append(data[id][0])
+                for obj in objs:
+                    for id in obj:
+                        labels.append(data[id][0])
 
                 if split == "train":
                     Y_train = np.array(labels)
@@ -67,6 +69,10 @@ class RandomModel:
                 random_probs = np.random.random_sample(len(np.unique(Y_train)))
                 random_probs = random_probs / sum(random_probs)
                 Y_probs[i, :] = random_probs
+
+            # reshape
+            Y_probs = Y_probs.reshape([len(test_objs), -1, len(np.unique(Y_train))])
+            Y_test = Y_test.reshape([len(test_objs), -1])
 
             result = (description, Y_test.tolist(), Y_probs.tolist())
             results.append(result)

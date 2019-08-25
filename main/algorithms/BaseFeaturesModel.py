@@ -26,7 +26,8 @@ class BaseFeaturesModel:
         """
         This method runs all experiments provided and reports the results
         results is in format (description, ground truth labels, prediction scores), where prediction scores is a
-        multi-dimensional array where each column represents the scores for each label.
+        multi-dimensional array where the first dimension represents the object instance, the second the grasps, the
+        third the score for each class label
 
         :param experiments:
         :return:
@@ -34,7 +35,7 @@ class BaseFeaturesModel:
         results = []
 
         for experiment in experiments:
-            description, train_ids, test_ids = experiment
+            description, train_objs, test_objs = experiment
             print("\nRun experiment {}".format(description))
 
             # normalize features
@@ -49,18 +50,20 @@ class BaseFeaturesModel:
                 labels = []
 
                 if split == "train":
-                    ids = train_ids
+                    objs = train_objs
                 elif split == "test":
-                    ids = test_ids
+                    objs = test_objs
 
-                for id in ids:
-                    label = data[id][0]
-                    extracted_base_features = data[id][2]
-                    # extracted_base_features = (features, histograms, descriptor)
-                    features.append(extracted_base_features[0])
-                    histograms.append(extracted_base_features[1])
-                    descriptors.append(extracted_base_features[2])
-                    labels.append(label)
+                for obj in objs:
+                    for id in obj:
+                        label = data[id][0]
+                        extracted_base_features = data[id][2]
+                        # extracted_base_features = (features, histograms, descriptor)
+                        features.append(extracted_base_features[0])
+                        histograms.append(extracted_base_features[1])
+                        descriptors.append(extracted_base_features[2])
+                        labels.append(label)
+
                 features = np.array(features)
                 histograms = np.array(histograms)
                 descriptors = np.array(descriptors)
@@ -101,7 +104,10 @@ class BaseFeaturesModel:
             model.fit(X_train, Y_train)
             Y_probs = model.predict_proba(X_test)
 
-            result = (description, list(Y_test), list(Y_probs))
+            # reshape
+            Y_probs = Y_probs.reshape([len(test_objs), -1, len(np.unique(Y_train))])
+            Y_test = Y_test.reshape([len(test_objs), -1])
+            result = (description, Y_test.tolist(), Y_probs.tolist())
             results.append(result)
 
         return results

@@ -9,17 +9,33 @@ import DataSpecification
 
 
 class DataReader:
+    """
+    This class is used to read semantic object data and base features data from pickle files and organize them based on
+    task and object classes. This class also structure training and testing data for different experiments.
+    """
 
     def __init__(self, data_dir):
         self.data_dir = data_dir
         self.labeled_data_dir = os.path.join(self.data_dir, "labeled")
         self.base_features_dir = os.path.join(self.data_dir, "base_features")
 
+        # Important:
         # each data point has form:
-        # ((features, histograms, descriptor),(grasp_affordance, grasp_material),((part_affordance, part_material)...))
+        # (label, context, extracted_base_features, extracted_grasp_semantic_features, extracted_object_semantic_parts)
+        #
+        # Specifically,
+        # (
+        #  label,
+        #  (task, object_class, object_state),
+        #  (features, histograms, descriptor),
+        #  (grasp_affordance, grasp_material),
+        #  ((part_affordance, part_material), (part_affordance, part_material), ...)
+        # )
         self.data = []
 
+        # Important:
         # this is used to group pointers of raw data based on object classes and tasks
+        # The structure is task -> object class -> object id -> object state -> list of grasps
         self.grouped_data_indices = OrderedDict()
         for task in DataSpecification.TASKS:
             self.grouped_data_indices[task] = OrderedDict()
@@ -41,7 +57,7 @@ class DataReader:
             for object_file in object_files:
                 base_features_file = os.path.join(base_features_session_dir, object_file.split("/")[-1])
 
-                # read base features (there is one set of base features for each grasp)
+                # read base features
                 base_features_list = load_pickle(base_features_file)
 
                 # read object
@@ -54,7 +70,9 @@ class DataReader:
                 # extract features
                 object_class = semantic_object.name
                 object_id = len(self.grouped_data_indices[DataSpecification.TASKS[0]][object_class])
+
                 for grasp, base_features in zip(semantic_object.labeled_grasps, base_features_list):
+
                     # check grasp and base features are matched correctly
                     assert base_features.task == grasp.task
                     assert base_features.label == grasp.score
@@ -65,6 +83,9 @@ class DataReader:
                     # Important: because we use the task field in semantic grasp msg definition to include both the task
                     #            and the object state. We need to get them back here.
                     task, object_state = task.split("_")
+
+                    # extract context
+                    context = (task, object_class, object_state)
 
                     # extract base features
                     features = []
@@ -106,27 +127,32 @@ class DataReader:
 
                     # Important: here is the definition of each data point
                     self.data.append((label,
-                                      object_state,
+                                      context,
                                       extracted_base_features,
                                       extracted_grasp_semantic_features,
                                       extracted_object_semantic_parts))
 
                     if object_id not in self.grouped_data_indices[task][object_class]:
-                        self.grouped_data_indices[task][object_class][object_id] = []
-                    self.grouped_data_indices[task][object_class][object_id].append(data_id)
+                        self.grouped_data_indices[task][object_class][object_id] = OrderedDict()
+                    if object_state not in self.grouped_data_indices[task][object_class][object_id]:
+                        self.grouped_data_indices[task][object_class][object_id][object_state] = []
+
+                    self.grouped_data_indices[task][object_class][object_id][object_state].append(data_id)
+
+        # print(self.grouped_data_indices)
 
     def prepare_data_1(self, test_percentage=0.3, repeat_num=10):
         """
         This method is used to split data for experiment 1: semantic grasp transfer between object instances
         Instances of each object class for each task will be split into train and test
 
-        Note: the output data should be a list of (description, train_ids, test_ids) tuples.
+        Note: the output data should be a list of (description, train_objs, test_objs) tuples.
               Each tuple represent data for an object class.
               The algorithm needs to train a separate model and test the model for each tuple.
 
         :return:
         """
-        # each experiment is a tuple of (description, train_ids, test_ids)
+        # each experiment is a tuple of (description, train_objs, test_objs)
         experiments = []
 
         for task in self.grouped_data_indices:
@@ -148,14 +174,16 @@ class DataReader:
                     train_object_ids = np.array(list(set(object_instance_ids) - set(test_object_ids)))
                     # print(train_object_ids)
 
-                    train_ids = []
-                    test_ids = []
+                    train_objs = []
+                    test_objs = []
                     for object_id in train_object_ids:
-                        train_ids.extend([data_id for data_id in self.grouped_data_indices[task][object_class][object_id]])
+                        for object_state in self.grouped_data_indices[task][object_class][object_id]:
+                            train_objs.append([data_id for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]])
                     for object_id in test_object_ids:
-                        test_ids.extend([data_id for data_id in self.grouped_data_indices[task][object_class][object_id]])
+                        for object_state in self.grouped_data_indices[task][object_class][object_id]:
+                            test_objs.append([data_id for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]])
 
-                    experiments.append(("{}:{}:{}".format(task, object_class, test_iter), train_ids, test_ids))
+                    experiments.append(("{}:{}:{}".format(task, object_class, test_iter), train_objs, test_objs))
 
         for exp in experiments:
             print(exp)
@@ -171,7 +199,7 @@ class DataReader:
         :param repeat_num:
         :return:
         """
-        # each experiment is a tuple of (description, train_ids, test_ids)
+        # each experiment is a tuple of (description, train_objs, test_objs)
         experiments = []
 
         for ti, task in enumerate(self.grouped_data_indices):
@@ -179,20 +207,22 @@ class DataReader:
 
             # perform leave one out test. test_object_class is the object class that is left out.
             for test_object_class in self.grouped_data_indices[task]:
-                train_ids = []
-                test_ids = []
+                train_objs = []
+                test_objs = []
 
                 for object_id in self.grouped_data_indices[task][test_object_class]:
-                    test_ids.extend([data_id for data_id in self.grouped_data_indices[task][test_object_class][object_id]])
+                    for object_state in self.grouped_data_indices[task][test_object_class][object_id]:
+                        test_objs.append([data_id for data_id in self.grouped_data_indices[task][test_object_class][object_id][object_state]])
 
                 for object_class in self.grouped_data_indices[task]:
                     if object_class == test_object_class:
                         continue
                     for object_id in self.grouped_data_indices[task][object_class]:
-                        train_ids.extend(
-                            [data_id for data_id in self.grouped_data_indices[task][object_class][object_id]])
+                        for object_state in self.grouped_data_indices[task][object_class][object_id]:
+                            train_objs.append(
+                                [data_id for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]])
 
-                experiments.append(("{}:{}".format(task, test_object_class), train_ids, test_ids))
+                experiments.append(("{}:{}".format(task, test_object_class), train_objs, test_objs))
 
         for exp in experiments:
             print(exp)
@@ -206,17 +236,18 @@ class DataReader:
         :return:
         """
 
-        # each experiment is a tuple of (description, train_ids, test_ids)
+        # each experiment is a tuple of (description, train_objs, test_objs)
         experiments = []
 
         for test_task in self.grouped_data_indices:
             for test_object_class in self.grouped_data_indices[test_task]:
                 print("Preparing split for testing task {} object {}".format(test_task, test_object_class))
-                train_ids = []
-                test_ids = []
+                train_objs = []
+                test_objs = []
 
                 for object_id in self.grouped_data_indices[test_task][test_object_class]:
-                    test_ids.extend([data_id for data_id in self.grouped_data_indices[test_task][test_object_class][object_id]])
+                    for object_state in self.grouped_data_indices[test_task][test_object_class][object_id]:
+                        test_objs.append([data_id for data_id in self.grouped_data_indices[test_task][test_object_class][object_id][object_state]])
 
                 for task in self.grouped_data_indices:
                     for object_class in self.grouped_data_indices[task]:
@@ -224,10 +255,11 @@ class DataReader:
                             continue
 
                         for object_id in self.grouped_data_indices[task][object_class]:
-                            train_ids.extend([data_id for data_id in
-                                             self.grouped_data_indices[task][object_class][object_id]])
+                            for object_state in self.grouped_data_indices[task][object_class][object_id]:
+                                train_objs.append([data_id for data_id in
+                                             self.grouped_data_indices[task][object_class][object_id][object_state]])
 
-                experiments.append(("{}:{}".format(test_task, test_object_class), train_ids, test_ids))
+                experiments.append(("{}:{}".format(test_task, test_object_class), train_objs, test_objs))
 
         for exp in experiments:
             print(exp)
@@ -241,17 +273,14 @@ class DataReader:
         :return:
         """
 
-        # self.grouped_data_indices[task][object_class][object_id].append(data_id)
-
-
-        # each experiment is a tuple of (description, train_ids, test_ids)
+        # each experiment is a tuple of (description, train_objs, test_objs)
         experiments = []
 
         # repeatedly create split
         for test_iter in range(repeat_num):
             print("Preparing split for run {}".format(test_iter))
-            train_ids = []
-            test_ids = []
+            train_objs = []
+            test_objs = []
 
             # an instance in this case is the set of grasps for an object instance for a task
             instances = []
@@ -274,14 +303,16 @@ class DataReader:
             for instance in test_instances:
                 task, object_class, object_id = instance.split(":")
                 object_id = int(object_id)
-                test_ids.extend(self.grouped_data_indices[task][object_class][object_id])
+                for object_state in self.grouped_data_indices[task][object_class][object_id]:
+                    test_objs.append(self.grouped_data_indices[task][object_class][object_id][object_state])
 
             for instance in train_instances:
                 task, object_class, object_id = instance.split(":")
                 object_id = int(object_id)
-                train_ids.extend(self.grouped_data_indices[task][object_class][object_id])
+                for object_state in self.grouped_data_indices[task][object_class][object_id]:
+                    train_objs.append(self.grouped_data_indices[task][object_class][object_id][object_state])
 
-            experiments.append(("{}".format(test_iter), train_ids, test_ids))
+            experiments.append(("{}".format(test_iter), train_objs, test_objs))
 
         for exp in experiments:
             print(exp)
