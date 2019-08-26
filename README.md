@@ -20,6 +20,7 @@ the line `add_compile_options(-std=c++11)` to the top-level `CMakeLists.txt` of 
 3. run `rosrun rail_semantic_grasping base_features_collection_node.py` to save base features to pickle files
 
 ## ToDo:
+### data collection
 - [ ] Think about whether the mapping from 2d mask to 3d is correct
 - [ ] Think about whether the part affordances of cup should match other objects for transfer
 - [ ] Implement other features in base feature extraction. For example, the size of parts, the orientation of parts, ...
@@ -27,11 +28,16 @@ the line `add_compile_options(-std=c++11)` to the top-level `CMakeLists.txt` of 
 be recollected
 - [ ] If we are going to recollect all data. Then we should change the specification of msg types. For example, change
 semantic grasp to include object state. 
+### model design
+- [ ] Assign weights to different classes since the data is inbalanced. This can be achieved in NLLLoss
 
 ## Progress
--8.22: 
+
+- 8.22: 
     - define all experiments
     - run all experiments on baselines
+- 8.26:
+    - implement algorithm
     
 ## Data Stats
 

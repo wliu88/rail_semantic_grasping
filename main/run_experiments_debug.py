@@ -3,7 +3,7 @@ from main.DataReader import DataReader
 from main.algorithms.BaseFeaturesModel import BaseFeaturesModel
 from main.algorithms.FrequencyTableModel import FrequencyTableModel
 from main.algorithms.RandomModel import RandomModel
-from main.algorithms.Model1.CAGEAlgorithm import CAGEAlgorithm
+from main.algorithms.Model2.CAGEAlgorithm import CAGEAlgorithm
 
 from main.Metrics import score_1, score_2, score_3, score_4
 
@@ -26,4 +26,4 @@ if __name__ == "__main__":
 
     results = cage_algorithm.run_experiments(data_reader.data, experiments)
 
-    score_1(results)
+    # score_1(results)

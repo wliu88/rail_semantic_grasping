@@ -8,6 +8,6 @@ STATES = {"cup": ["hot", "cold", "empty"],
           "bottle": ["lid on", "lid off"],
           "pan": ["hot", "empty"]}
 
-MATERIALS = {"plastic", "metal", "ceramic", "glass", "paper", "stone", "wood"}
+MATERIALS = {"plastic", "metal", "ceramic", "glass", "paper", "stone", "wood", ""}
 
-AFFORDANCES = {"opening", "body", "handle", "grasp", "w_grasp", "contain", "support", "pound", "display"}
+AFFORDANCES = {"opening", "body", "handle", "grasp", "w_grasp", "contain", "support", "pound", "display", "None"}
