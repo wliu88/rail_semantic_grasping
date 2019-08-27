@@ -1,11 +1,14 @@
 import numpy as np
+from sklearn.utils import shuffle
+
+import torch
 
 import main.DataSpecification as DataSpecification
 
 
 class Batcher:
 
-    def __init__(self, train_features, train_labels, test_features, test_labels, batch_size=20, shuffle=True):
+    def __init__(self, train_features, train_labels, test_features, test_labels, batch_size=20, do_shuffle=True):
 
         # each feature is a tuple of (task, object_class, state, parts, grasp)
         self.train_features = train_features
@@ -24,6 +27,13 @@ class Batcher:
         self.build_vocabs()
         self.vectorize_data()
         # when the code is executed to here, all features and labels are in numpy array
+
+        self.do_shuffle = do_shuffle
+        self.batch_size = batch_size
+
+        # batch count
+        self.train_batch_count = 0
+        self.test_batch_count = 0
 
     def build_vocabs(self):
         for aff in DataSpecification.AFFORDANCES:
@@ -96,14 +106,44 @@ class Batcher:
         self.train_labels = train_labels
         self.test_labels = test_labels
 
-        print(self.train_features.shape)
-        print(self.train_labels.shape)
-        print(self.test_features.shape)
-        print(self.test_labels.shape)
+    def shuffle_data(self):
+        shuffle(self.train_features, self.train_labels)
 
-    def shuffle(self):
-        pass
+    def reset(self):
+        self.train_batch_count = 0
+        self.test_batch_count = 0
+        if self.do_shuffle:
+            self.shuffle_data()
 
-    def batch(self):
-        pass
+    def get_train_batch(self):
+        if self.train_batch_count < len(self.train_labels):
+            if self.train_batch_count + self.batch_size <= len(self.train_labels):
+                batch_features = self.train_features[self.train_batch_count:self.train_batch_count+self.batch_size]
+                batch_labels = self.train_labels[self.train_batch_count:self.train_batch_count+self.batch_size]
+            else:
+                batch_features = self.train_features[self.train_batch_count:]
+                batch_labels = self.train_labels[self.train_batch_count:]
+
+            self.train_batch_count += self.batch_size
+
+            return torch.FloatTensor(batch_features), torch.LongTensor(batch_labels)
+        else:
+            return None, None
+
+    def get_test_batch(self):
+        if self.train_batch_count < len(self.train_labels):
+            if self.train_batch_count + self.batch_size <= len(self.train_labels):
+                batch_features = self.train_features[self.train_batch_count:self.train_batch_count + self.batch_size]
+                batch_labels = self.train_labels[self.train_batch_count:self.train_batch_count + self.batch_size]
+            else:
+                batch_features = self.train_features[self.train_batch_count:]
+                batch_labels = self.train_labels[self.train_batch_count:]
+
+            self.train_batch_count += self.batch_size
+
+            return torch.FloatTensor(batch_features), torch.LongTensor(batch_labels)
+        else:
+            return None, None
+
+
 
