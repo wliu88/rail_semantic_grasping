@@ -17,7 +17,7 @@ class CAGEAlgorithm:
 
     """
 
-    def __init__(self, number_of_epochs=20):
+    def __init__(self, number_of_epochs=50):
         self.model = None
         self.number_of_epochs = number_of_epochs
 
@@ -125,7 +125,7 @@ class CAGEAlgorithm:
                                part_pooling_method="max",
                                label_dim=len(np.unique(Y)))
 
-        optimizer = optim.Adagrad(self.model.parameters(), lr=1e-1)
+        optimizer = optim.Adagrad(self.model.parameters(), lr=1e-1, weight_decay=1e-3)
         criterion = torch.nn.NLLLoss()#.cuda()
 
         # 1. training process

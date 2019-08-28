@@ -26,4 +26,4 @@ if __name__ == "__main__":
 
     results = cage_algorithm.run_experiments(data_reader.data, experiments)
 
-    # score_1(results)
+    score_1(results)

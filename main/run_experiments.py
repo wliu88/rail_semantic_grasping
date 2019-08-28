@@ -22,8 +22,8 @@ if __name__ == "__main__":
     #
     # results = random_model.run_experiments(data_reader.data, experiments)
 
-    experiments = data_reader.prepare_data_1()
+    experiments = data_reader.prepare_data_3()
 
     results = cage_algorithm.run_experiments(data_reader.data, experiments)
 
-    score_1(results)
+    score_3(results)
