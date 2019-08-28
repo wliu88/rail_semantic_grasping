@@ -7,8 +7,8 @@ from sklearn.utils import shuffle
 import torch
 import torch.optim as optim
 
-from main.algorithms.Model2.CAGEModel import CAGEModel
-from main.algorithms.Model2.Batcher import Batcher
+from main.algorithms.EmbeddingModel1.CAGEModel import CAGEModel
+from main.algorithms.EmbeddingModel1.Batcher import Batcher
 
 # Important: should assign weights to different classes since the data is inbalanced
 
@@ -100,17 +100,17 @@ class CAGEAlgorithm:
             # preparation for training the model
             batcher = Batcher(X_train, Y_train, X_test, Y_test, batch_size=1000, do_shuffle=True)
 
-            # learn the model
-            self.train(batcher)
-
-            # make prediction
-            Y_probs = self.test(batcher)
-
-            # reshape
-            Y_probs = Y_probs.reshape([len(test_objs), -1, len(np.unique(Y_train))])
-            Y_test = Y_test.reshape([len(test_objs), -1])
-            result = (description, Y_test.tolist(), Y_probs.tolist())
-            results.append(result)
+            # # learn the model
+            # self.train(batcher)
+            #
+            # # make prediction
+            # Y_probs = self.test(batcher)
+            #
+            # # reshape
+            # Y_probs = Y_probs.reshape([len(test_objs), -1, len(np.unique(Y_train))])
+            # Y_test = Y_test.reshape([len(test_objs), -1])
+            # result = (description, Y_test.tolist(), Y_probs.tolist())
+            # results.append(result)
 
             #
             #
