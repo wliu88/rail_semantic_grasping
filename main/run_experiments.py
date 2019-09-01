@@ -3,7 +3,7 @@ from main.DataReader import DataReader
 from main.algorithms.BaseFeaturesModel import BaseFeaturesModel
 from main.algorithms.FrequencyTableModel import FrequencyTableModel
 from main.algorithms.RandomModel import RandomModel
-from main.algorithms.Model1.CAGEAlgorithm import CAGEAlgorithm
+from main.algorithms.WideAndDeepModel.CAGEAlgorithm import CAGEAlgorithm
 
 from main.Metrics import score_1, score_2, score_3, score_4
 
@@ -14,16 +14,17 @@ if __name__ == "__main__":
     random_model = RandomModel()
     cage_algorithm = CAGEAlgorithm()
 
-    # experiments = data_reader.prepare_data_1()
+    experiments = data_reader.prepare_data_1()
     #
-    # # results = base_features_model.run_experiments(data_reader.data, experiments)
+    # results = base_features_model.run_experiments(data_reader.data, experiments)
     #
-    # # results = frequence_table_model.run_experiments(data_reader.data, experiments)
+    # results = frequence_table_model.run_experiments(data_reader.data, experiments)
     #
     # results = random_model.run_experiments(data_reader.data, experiments)
 
-    experiments = data_reader.prepare_data_3()
+
+    # experiments = data_reader.prepare_data_1()
 
     results = cage_algorithm.run_experiments(data_reader.data, experiments)
 
-    score_3(results)
+    score_1(results)

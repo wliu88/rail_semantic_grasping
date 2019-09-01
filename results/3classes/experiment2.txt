@@ -1,0 +1,87 @@
+Random
+Positive preference MAP:
+              pour     scoop      stab  cut  lift    hammer  handover
+cup      0.476460  0.300433       NaN  NaN   NaN  0.444887  0.595578
+spatula  0.839445  0.873695  0.317712  NaN   NaN  0.521100  0.528554
+bowl          NaN  0.748564       NaN  NaN   NaN  0.733332  0.767856
+pan      0.617073  0.800327  0.325638  NaN   NaN  0.666111  0.395979
+bottle   0.836770  0.838687       NaN  NaN   NaN  0.778983  0.607592
+mean     0.692437  0.712341  0.321675  NaN   NaN  0.628883  0.579112
+Mean: 0.6197512809770324, Weighted Average: 0.3709434869195894
+
+Negative preference MAP:
+              pour     scoop      stab  cut  lift    hammer  handover
+cup      0.724834  0.857618  1.000000  1.0   1.0  1.000000  0.581184
+spatula  0.898189  0.892257  0.835302  NaN   NaN  0.931074  0.398566
+bowl     0.714206  0.686182  1.000000  1.0   1.0  0.949988  0.351573
+pan      0.710883  0.905156  0.825574  1.0   1.0  0.794974  0.363857
+bottle   0.663310  0.892953  1.000000  1.0   1.0  1.000000       NaN
+mean     0.742284  0.846833  0.932175  1.0   1.0  0.935207  0.423795
+Mean: 0.843052475458815, Weighted Average: 0.8288142987867425
+
+KNN:
+Positive preference MAP:
+              pour     scoop      stab  cut  lift    hammer  handover
+cup      0.689865  0.532205       NaN  NaN   NaN  0.482895  0.526236
+spatula  0.936522  0.834465  0.511099  NaN   NaN  0.906481  0.559766
+bowl          NaN  0.872842       NaN  NaN   NaN  0.688464  0.726116
+pan      0.552352  0.705760  0.450939  NaN   NaN  0.671999  0.431608
+bottle   0.959666  0.957212       NaN  NaN   NaN  0.915182  0.588738
+mean     0.784601  0.780497  0.481019  NaN   NaN  0.733004  0.566493
+Mean: 0.6904957652431737, Weighted Average: 0.41997355611042103
+
+Negative preference MAP:
+              pour     scoop      stab  cut  lift    hammer  handover
+cup      0.788858  0.898159  1.000000  1.0   1.0  1.000000  0.631845
+spatula  0.910532  0.913660  0.869329  NaN   NaN  0.975602  0.402604
+bowl     0.764593  0.764028  1.000000  1.0   1.0  0.944755  0.390835
+pan      0.787699  0.920368  0.807979  1.0   1.0  0.845679  0.657164
+bottle   0.766394  0.925254  1.000000  1.0   1.0  1.000000       NaN
+mean     0.803615  0.884294  0.935462  1.0   1.0  0.953207  0.520612
+Mean: 0.8739168004480694, Weighted Average: 0.8557402213067732
+
+Frequency Table:
+Positive preference MAP:
+              pour     scoop      stab  cut  lift    hammer  handover
+cup      0.399251  0.306663       NaN  NaN   NaN  0.366062  0.538209
+spatula  0.836209  0.865169  0.275556  NaN   NaN  0.956410  0.584464
+bowl          NaN  0.744013       NaN  NaN   NaN  0.703951  0.775104
+pan      0.627253  0.675338  0.199341  NaN   NaN  1.000000  0.237948
+bottle   0.845471  0.807257       NaN  NaN   NaN  0.583730  0.831516
+mean     0.677046  0.679688  0.237448  NaN   NaN  0.722031  0.593448
+Mean: 0.6266149645147715, Weighted Average: 0.37156577931814505
+
+Negative preference MAP:
+              pour     scoop      stab  cut  lift    hammer  handover
+cup      0.775163  0.884819  1.000000  1.0   1.0  1.000000  0.597415
+spatula  0.952632  0.946217  0.896986  NaN   NaN  0.935664  0.772147
+bowl     0.731057  0.735913  1.000000  1.0   1.0  0.937987  0.380979
+pan      0.966069  0.865289  0.721731  1.0   1.0  0.925926  0.869662
+bottle   0.907028  0.857988  1.000000  1.0   1.0  1.000000       NaN
+mean     0.866390  0.858045  0.923743  1.0   1.0  0.959915  0.655051
+Mean: 0.895646031958629, Weighted Average: 0.8703495120413084
+
+NOTE: generalization of positive preference to cup is worse than random because cups use different affordance labels.
+      for some tasks, generalization of negative preference to cup is slightly better than random because of "None"
+      affordance label.
+
+Model 1:
+Positive preference MAP:
+              pour     scoop      stab  cut  lift    hammer  handover
+cup      0.764123  0.872883       NaN  NaN   NaN  0.785670  0.612569
+spatula  1.000000  0.996528  0.480930  NaN   NaN  0.956410  0.437407
+bowl          NaN  0.744448       NaN  NaN   NaN  0.682743  0.775727
+pan      0.998485  0.625446  0.321479  NaN   NaN  0.621714  1.000000
+bottle   0.977767  1.000000       NaN  NaN   NaN  0.936847  0.806003
+mean     0.935094  0.847861  0.401204  NaN   NaN  0.796677  0.726341
+Mean: 0.7808180524068733, Weighted Average: 0.48062511979374306
+
+Negative preference MAP:
+              pour     scoop      stab  cut  lift    hammer  handover
+cup      0.842650  0.976787  1.000000  1.0   1.0  1.000000  0.642585
+spatula  1.000000  0.992969  0.798090  NaN   NaN  0.979146  0.980790
+bowl     0.751844  0.728289  1.000000  1.0   1.0  0.941896  0.380979
+pan      0.994444  0.897353  0.775963  1.0   1.0  0.925926  0.869662
+bottle   0.907028  1.000000  1.000000  1.0   1.0  1.000000       NaN
+mean     0.899193  0.919079  0.914811  1.0   1.0  0.969394  0.718504
+Mean: 0.9183250589074314, Weighted Average: 0.8933742923192143

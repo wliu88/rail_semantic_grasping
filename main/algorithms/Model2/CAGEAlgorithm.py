@@ -19,7 +19,7 @@ class CAGEAlgorithm:
 
     """
 
-    def __init__(self, number_of_epochs=100):
+    def __init__(self, number_of_epochs=300):
         self.model = None
         self.number_of_epochs = number_of_epochs
 
@@ -98,7 +98,7 @@ class CAGEAlgorithm:
             print("test stats:", test_stats)
 
             # preparation for training the model
-            batcher = Batcher(X_train, Y_train, X_test, Y_test, batch_size=1000, do_shuffle=True)
+            batcher = Batcher(X_train, Y_train, X_test, Y_test, batch_size=256, do_shuffle=True)
 
             # learn the model
             self.train(batcher)
@@ -111,23 +111,6 @@ class CAGEAlgorithm:
             Y_test = Y_test.reshape([len(test_objs), -1])
             result = (description, Y_test.tolist(), Y_probs.tolist())
             results.append(result)
-
-            #
-            #
-            #
-            # # learn the model
-            # self.train(X_train, Y_train, label_to_class)
-            #
-            # # make prediction
-            # # Y_probs: [number of test grasps, number of label classes]
-            # Y_probs = np.zeros([len(Y_test), len(np.unique(Y_train))])
-            # self.test(X_test, Y_probs)
-            #
-            # # reshape
-            # Y_probs = Y_probs.reshape([len(test_objs), -1, len(np.unique(Y_train))])
-            # Y_test = Y_test.reshape([len(test_objs), -1])
-            # result = (description, Y_test.tolist(), Y_probs.tolist())
-            # results.append(result)
 
         return results
 

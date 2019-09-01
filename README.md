@@ -27,7 +27,8 @@ the line `add_compile_options(-std=c++11)` to the top-level `CMakeLists.txt` of 
 - [ ] Cup 25 red metal with handle needs to be recollected. Spatula wood circular 3 is classified as hammer need to 
 be recollected
 - [ ] If we are going to recollect all data. Then we should change the specification of msg types. For example, change
-semantic grasp to include object state. 
+semantic grasp to include object state.
+- [ ] Change has_stuff to filled
 ### model design
 - [ ] Assign weights to different classes since the data is inbalanced. This can be achieved in NLLLoss
 

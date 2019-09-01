@@ -7,6 +7,7 @@ import numpy as np
 from rail_semantic_grasping.msg import SemanticObjectList, SemanticObject, SemanticGrasp, BaseFeatures, SemanticPart
 import DataSpecification
 
+np.random.seed(0)
 
 class DataReader:
     """
@@ -126,11 +127,11 @@ class DataReader:
                     data_id = len(self.data)
 
                     # Important: here is the definition of each data point
-                    self.data.append((label,
+                    self.data.append([label,
                                       context,
                                       extracted_base_features,
                                       extracted_grasp_semantic_features,
-                                      extracted_object_semantic_parts))
+                                      extracted_object_semantic_parts])
 
                     if object_id not in self.grouped_data_indices[task][object_class]:
                         self.grouped_data_indices[task][object_class][object_id] = OrderedDict()
@@ -139,7 +140,39 @@ class DataReader:
 
                     self.grouped_data_indices[task][object_class][object_id][object_state].append(data_id)
 
-        # print(self.grouped_data_indices)
+        # Important: We are going to modify labels here as we don't want to model negative preferences
+        for task in self.grouped_data_indices:
+            for object_class in self.grouped_data_indices[task]:
+                for object_id in self.grouped_data_indices[task][object_class]:
+                    for object_state in self.grouped_data_indices[task][object_class][object_id]:
+                        assert len(self.grouped_data_indices[task][object_class][object_id][object_state]) == 20
+
+                        # compute number of unique labels
+                        labels = []
+                        for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
+                            labels.append(self.data[data_id][0])
+                        labels = np.unique(labels)
+
+                        # change labels based on situations
+                        if len(labels) == 1:
+                            pass
+                        elif 1 in labels and -1 in labels and 0 not in labels:
+                            pass
+                        elif 1 in labels and 0 in labels and -1 not in labels:
+                            for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
+                                if self.data[data_id][0] == 0:
+                                    self.data[data_id][0] = -1
+                        elif 0 in labels and -1 in labels and 1 not in labels:
+                            for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
+                                if self.data[data_id][0] == 0:
+                                    self.data[data_id][0] = 1
+                        elif 0 in labels and 1 in labels and -1 in labels:
+                            for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
+                                if self.data[data_id][0] == 0:
+                                    self.data[data_id][0] = 1
+                        else:
+                            print("Error: unique labels are {}".format(labels))
+                            exit()
 
     def prepare_data_1(self, test_percentage=0.3, repeat_num=10):
         """
