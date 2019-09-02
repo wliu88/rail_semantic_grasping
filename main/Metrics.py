@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from collections import OrderedDict
 
-import DataSpecification
+import main.DataSpecification as DataSpecification
 
 
 def compute_aps(obj_gts, obj_preds):
@@ -92,6 +92,10 @@ def score_1(results):
     neg_map_pd = pd.DataFrame(neg_map, index=DataSpecification.OBJECTS, columns=DataSpecification.TASKS)
 
     # remove nans to compute weighted avg
+    print("Pos ap raw: {}".format(list(pos_map[~np.isnan(pos_map)].flat)))
+    print("Neg ap raw: {}".format(list(neg_map[~np.isnan(neg_map)].flat)))
+
+    # remove nans to compute weighted avg
     pos_map[np.isnan(pos_map)] = 0
     neg_map[np.isnan(neg_map)] = 0
     pos_map_weighted_avg = np.average(pos_map, weights=num_examples)
@@ -149,6 +153,9 @@ def score_2(results):
     neg_map_pd.loc['mean'] = neg_map_pd.mean()
 
     # remove nans to compute weighted avg
+    print("Pos ap raw: {}".format(list(pos_map[~np.isnan(pos_map)].flat)))
+    print("Neg ap raw: {}".format(list(neg_map[~np.isnan(neg_map)].flat)))
+
     pos_map[np.isnan(pos_map)] = 0
     neg_map[np.isnan(neg_map)] = 0
     pos_map_weighted_avg = np.average(pos_map, weights=num_examples)
@@ -227,17 +234,23 @@ def score_4(results):
         description, gts, preds = result
         test_iter = description.split(":")
 
+        pos_aps = []
+        neg_aps = []
+
         for obj_preds, obj_gts in zip(preds, gts):
             obj_preds, obj_gts = np.array(obj_preds), np.array(obj_gts)
 
             pos_ap, neg_ap = compute_aps(obj_gts, obj_preds)
             if pos_ap is not None:
-                raw_pos_scores.append(pos_ap)
+                pos_aps.append(pos_ap)
             if neg_ap is not None:
-                raw_neg_scores.append(neg_ap)
+                neg_aps.append(neg_ap)
 
-    print(raw_pos_scores)
-    print(raw_neg_scores)
+        raw_pos_scores.append(sum(pos_aps) * 1.0/ len(pos_aps))
+        raw_neg_scores.append(sum(neg_aps) * 1.0 / len(neg_aps))
+
+    print("Pos ap raw: {}".format(raw_pos_scores))
+    print("Neg ap raw: {}".format(raw_neg_scores))
 
     # format scores for better visualization
     pos_map = np.average(raw_pos_scores)
@@ -245,6 +258,7 @@ def score_4(results):
 
     print("Positive preference MAP:\n", pos_map)
     print("\nNegative preference MAP:\n", neg_map)
+
 
 def score_embedding_3(results):
     # this is used to group raw scores based on object classes and tasks

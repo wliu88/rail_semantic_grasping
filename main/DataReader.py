@@ -140,39 +140,39 @@ class DataReader:
 
                     self.grouped_data_indices[task][object_class][object_id][object_state].append(data_id)
 
-        # Important: We are going to modify labels here as we don't want to model negative preferences
-        for task in self.grouped_data_indices:
-            for object_class in self.grouped_data_indices[task]:
-                for object_id in self.grouped_data_indices[task][object_class]:
-                    for object_state in self.grouped_data_indices[task][object_class][object_id]:
-                        assert len(self.grouped_data_indices[task][object_class][object_id][object_state]) == 20
-
-                        # compute number of unique labels
-                        labels = []
-                        for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
-                            labels.append(self.data[data_id][0])
-                        labels = np.unique(labels)
-
-                        # change labels based on situations
-                        if len(labels) == 1:
-                            pass
-                        elif 1 in labels and -1 in labels and 0 not in labels:
-                            pass
-                        elif 1 in labels and 0 in labels and -1 not in labels:
-                            for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
-                                if self.data[data_id][0] == 0:
-                                    self.data[data_id][0] = -1
-                        elif 0 in labels and -1 in labels and 1 not in labels:
-                            for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
-                                if self.data[data_id][0] == 0:
-                                    self.data[data_id][0] = 1
-                        elif 0 in labels and 1 in labels and -1 in labels:
-                            for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
-                                if self.data[data_id][0] == 0:
-                                    self.data[data_id][0] = 1
-                        else:
-                            print("Error: unique labels are {}".format(labels))
-                            exit()
+        # # Important: We are going to modify labels here as we don't want to model negative preferences
+        # for task in self.grouped_data_indices:
+        #     for object_class in self.grouped_data_indices[task]:
+        #         for object_id in self.grouped_data_indices[task][object_class]:
+        #             for object_state in self.grouped_data_indices[task][object_class][object_id]:
+        #                 assert len(self.grouped_data_indices[task][object_class][object_id][object_state]) == 20
+        #
+        #                 # compute number of unique labels
+        #                 labels = []
+        #                 for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
+        #                     labels.append(self.data[data_id][0])
+        #                 labels = np.unique(labels)
+        #
+        #                 # change labels based on situations
+        #                 if len(labels) == 1:
+        #                     pass
+        #                 elif 1 in labels and -1 in labels and 0 not in labels:
+        #                     pass
+        #                 elif 1 in labels and 0 in labels and -1 not in labels:
+        #                     for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
+        #                         if self.data[data_id][0] == 0:
+        #                             self.data[data_id][0] = -1
+        #                 elif 0 in labels and -1 in labels and 1 not in labels:
+        #                     for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
+        #                         if self.data[data_id][0] == 0:
+        #                             self.data[data_id][0] = 1
+        #                 elif 0 in labels and 1 in labels and -1 in labels:
+        #                     for data_id in self.grouped_data_indices[task][object_class][object_id][object_state]:
+        #                         if self.data[data_id][0] == 0:
+        #                             self.data[data_id][0] = 1
+        #                 else:
+        #                     print("Error: unique labels are {}".format(labels))
+        #                     exit()
 
     def prepare_data_1(self, test_percentage=0.3, repeat_num=10):
         """

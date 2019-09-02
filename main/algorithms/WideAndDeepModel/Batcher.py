@@ -8,18 +8,25 @@ import main.DataSpecification as DataSpecification
 
 class Batcher:
 
-    def __init__(self, train_features, train_labels, test_features, test_labels, batch_size=20, do_shuffle=True):
+    def __init__(self, description, num_train_objects, num_test_objects,
+                 train_features, train_labels, test_features, test_labels, batch_size=20, do_shuffle=True):
+
+        self.description = description
+        self.num_train_objects = num_train_objects
+        self.num_test_objects = num_test_objects
 
         # each feature is a tuple of ((task, object_class, state, parts, grasp), base_features)
         self.raw_train_features = train_features
         self.raw_test_features = test_features
+        self.raw_train_labels = train_labels
+        self.raw_test_labels = test_labels
 
         self.train_semantic_features = None
         self.train_base_features = None
-        self.train_labels = train_labels
+        self.train_labels = None
         self.test_semantic_features = None
         self.test_base_features = None
-        self.test_labels = test_labels
+        self.test_labels = None
 
         # vocabs
         self.affordance_to_idx = {"<PAD>": 0}
@@ -64,10 +71,10 @@ class Batcher:
         for state in states:
             self.state_to_idx[state] = len(self.state_to_idx)
 
-        for l in np.sort(np.unique(self.train_labels)):
+        for l in np.sort(np.unique(self.raw_train_labels)):
             c = len(self.label_to_idx)
             self.label_to_idx[l] = c
-            self.class_weights.append(1.0 / np.sum(self.train_labels == l) * len(self.train_labels))
+            self.class_weights.append(1.0 / np.sum(self.raw_train_labels == l) * len(self.raw_train_labels))
         print("Class weights: {}".format(self.class_weights))
 
     def vectorize_data(self):
@@ -112,13 +119,11 @@ class Batcher:
                 self.test_base_features = np.array(vectorize_base_features)
 
         # vectorize labels and convert labels (e.g., -1, 0, 1) to label indices (e.g., 1, 2, 3)
-        train_labels = np.array(self.train_labels)
-        test_labels = np.array(self.test_labels)
+        self.train_labels = np.array(self.raw_train_labels)
+        self.test_labels = np.array(self.raw_test_labels)
         for label in self.label_to_idx:
-            train_labels[self.train_labels == label] = self.label_to_idx[label]
-            test_labels[self.test_labels == label] = self.label_to_idx[label]
-        self.train_labels = train_labels
-        self.test_labels = test_labels
+            self.train_labels[self.raw_train_labels == label] = self.label_to_idx[label]
+            self.test_labels[self.raw_test_labels == label] = self.label_to_idx[label]
 
     def shuffle_data(self):
         shuffle(self.train_semantic_features, self.train_base_features, self.train_labels)
@@ -184,6 +189,9 @@ class Batcher:
 
     def get_class_weights(self):
         return torch.FloatTensor(self.class_weights)
+
+    def get_raw_labels(self):
+        return np.copy(self.raw_train_labels), np.copy(self.raw_test_labels)
 
 
 

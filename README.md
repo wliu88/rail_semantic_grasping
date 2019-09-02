@@ -30,7 +30,7 @@ be recollected
 semantic grasp to include object state.
 - [ ] Change has_stuff to filled
 ### model design
-- [ ] Assign weights to different classes since the data is inbalanced. This can be achieved in NLLLoss
+- [x] Assign weights to different classes since the data is inbalanced. This can be achieved in NLLLoss
 
 ## Progress
 

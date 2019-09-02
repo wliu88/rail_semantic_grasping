@@ -10,18 +10,19 @@ import torch.optim as optim
 
 from main.algorithms.WideAndDeepModel.CAGEModel import CAGEModel
 from main.algorithms.WideAndDeepModel.Batcher import Batcher
-
-# Important: should assign weights to different classes since the data is inbalanced
-
+from main.Metrics import compute_aps
+from main.algorithms.Logger import Logger
 
 class CAGEAlgorithm:
     """
     This class implements the CAGE algorithm
     """
 
-    def __init__(self, number_of_epochs=200):
+    def __init__(self, number_of_epochs=150):
         self.model = None
         self.number_of_epochs = number_of_epochs
+
+        self.logger = Logger()
 
     def run_experiments(self, data, experiments):
         """
@@ -103,6 +104,7 @@ class CAGEAlgorithm:
                 np.nan_to_num(histograms)
                 # concatenate
                 base_features = np.nan_to_num(np.concatenate([visual_features, histograms, descriptors], axis=1))
+                # base_features = np.nan_to_num(visual_features)
                 base_features = base_features.tolist()
 
                 # combine semantic and visual features
@@ -132,9 +134,10 @@ class CAGEAlgorithm:
             print("test stats:", test_stats)
 
             # preparation for training the model
-            batcher = Batcher(X_train, Y_train, X_test, Y_test, batch_size=512, do_shuffle=True)
+            batcher = Batcher(description, len(train_objs), len(test_objs),
+                              X_train, Y_train, X_test, Y_test, batch_size=512, do_shuffle=True)
 
-            # # learn the model
+            # learn the model
             self.train(batcher)
 
             # make prediction
@@ -146,6 +149,8 @@ class CAGEAlgorithm:
             result = (description, Y_test.tolist(), Y_probs.tolist())
             results.append(result)
 
+        self.logger.close()
+
         return results
 
     def train(self, batcher):
@@ -155,16 +160,25 @@ class CAGEAlgorithm:
                                task_vocab_size=batcher.get_task_vocab_size(),
                                object_vocab_size=batcher.get_object_vocab_size(),
                                state_vocab_size=batcher.get_state_vocab_size(),
-                               affordance_embedding_dim=5, material_embedding_dim=5,
-                               task_embedding_dim=5, object_embedding_dim=5, state_embedding_dim=5,
+                               affordance_embedding_dim=10, material_embedding_dim=10,
+                               task_embedding_dim=10, object_embedding_dim=10, state_embedding_dim=10,
                                base_features_dim=batcher.get_base_features_dim(),
-                               part_encoder_dim=5, object_encoder_dim=5, grasp_encoder_dim=5,
-                               part_pooling_method="max",
-                               label_dim=batcher.get_label_dim())
+                               part_encoder_dim=10, object_encoder_dim=10, grasp_encoder_dim=10,
+                               part_pooling_method="avg",
+                               label_dim=batcher.get_label_dim(),
+                               use_wide=True, use_deep_base_features=False, use_deep_semantic_features=True)
 
-        optimizer = optim.Adagrad(self.model.parameters(), lr=1e-2)
+        # Separate optimizers for wide and deep parts
+        # wide_params, deep_params = self.model.get_params()
+        # optimizer_deep = optim.Adagrad(deep_params, lr=1e-1, weight_decay=1e-5)
+        # optimizer_wide = optim.Adagrad(wide_params, lr=1e-1)
+
+        # Important: Current best settings: optim.Adagrad(self.model.parameters(), lr=1e-1, weight_decay=1e-5) with 150 epochs
+        optimizer = optim.Adagrad(self.model.parameters(), lr=1e-1, weight_decay=1e-5)
+
+        # Important: The weight is not helping that much
         # criterion = torch.nn.NLLLoss(weight=batcher.get_class_weights())#.cuda()
-        criterion = torch.nn.NLLLoss(weight=batcher.get_class_weights())
+        criterion = torch.nn.NLLLoss()
 
         # 1. training process
         for epoch in range(self.number_of_epochs):
@@ -181,16 +195,27 @@ class CAGEAlgorithm:
                 loss = criterion(log_probs, batch_labels)
 
                 loss.backward()
+                # optimizer_deep.step()
+                # optimizer_wide.step()
                 optimizer.step()
 
                 total_loss += loss.item()
 
             print("Epoch", epoch, "spent", time.time() - start, "with total loss:", total_loss)
 
+            # total_test_loss = 0
+            # with torch.no_grad():
+            #     self.model.eval()
+            #     batcher.reset()
+            #     for batch_semantic_features, batch_base_features, batch_labels in batcher.get_test_batch():
+            #         log_probs = self.model(batch_semantic_features, batch_base_features)
+            #         loss = criterion(log_probs, batch_labels)
+            #         total_test_loss += loss.item()
+            #
+            # self.logger.log_loss(total_loss, total_test_loss, epoch, batcher.description)
+
     def test(self, batcher):
-
         all_probs = None
-
         with torch.no_grad():
             self.model.eval()
             batcher.reset()
@@ -201,5 +226,4 @@ class CAGEAlgorithm:
                     all_probs = probs
                 else:
                     all_probs = np.vstack([all_probs, probs])
-
         return all_probs
