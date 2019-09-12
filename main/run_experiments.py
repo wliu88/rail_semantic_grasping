@@ -24,20 +24,20 @@ def run():
 if __name__ == "__main__":
     data_reader = DataReader("/home/weiyu/catkin_ws/src/rail_semantic_grasping/data")
     base_features_model = BaseFeaturesModel(classifier="KNN")
-    frequence_table_model = FrequencyTableModel(use_affordance=True, use_material=False)
+    frequence_table_model = FrequencyTableModel(use_affordance=True, use_material=False, use_context=True)
     random_model = RandomModel()
     cage_algorithm = CAGEAlgorithm()
 
-    experiments = data_reader.prepare_data_4()
+    experiments = data_reader.prepare_data_2()
     #
     # results = base_features_model.run_experiments(data_reader.data, experiments)
     #
-    # results = frequence_table_model.run_experiments(data_reader.data, experiments)
+    results = frequence_table_model.run_experiments(data_reader.data, experiments)
     #
     # results = random_model.run_experiments(data_reader.data, experiments)
 
-    results = cage_algorithm.run_experiments(data_reader.data, experiments)
+    # results = cage_algorithm.run_experiments(data_reader.data, experiments)
 
-    score_4(results)
+    score_2(results)
 
 

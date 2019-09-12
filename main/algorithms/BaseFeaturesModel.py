@@ -1,6 +1,8 @@
 import numpy as np
 import pickle
 
+import main.DataSpecification as DataSpecification
+
 from sklearn import preprocessing
 from sklearn.metrics import confusion_matrix
 from sklearn.utils import shuffle
@@ -23,7 +25,19 @@ class BaseFeaturesModel:
         self.classifier = classifier
         assert classifier in ["KNN", "LR", "LMNN"]
 
-    def run_experiments(self, data, experiments, save_filename):
+        # states
+        self.state_to_idx = {}
+        states = set()
+        for obj in DataSpecification.STATES:
+            states.update(DataSpecification.STATES[obj])
+        for state in states:
+            self.state_to_idx[state] = len(self.state_to_idx)
+        # tasks
+        self.task_to_idx = {}
+        for task in DataSpecification.TASKS:
+            self.task_to_idx[task] = len(self.task_to_idx)
+
+    def run_experiments(self, data, experiments, save_filename=None):
         """
         This method runs all experiments provided and reports the results
         results is in format (description, ground truth labels, prediction scores), where prediction scores is a
@@ -48,6 +62,8 @@ class BaseFeaturesModel:
                 features = []
                 histograms = []
                 descriptors = []
+                states = []
+                tasks = []
                 labels = []
 
                 if split == "train":
@@ -65,9 +81,21 @@ class BaseFeaturesModel:
                         descriptors.append(extracted_base_features[2])
                         labels.append(label)
 
+                        state = data[id][1][2]
+                        state_feature = [0] * len(self.state_to_idx)
+                        state_feature[self.state_to_idx[state]] = 1
+                        states.append(state_feature)
+
+                        task = data[id][1][0]
+                        task_feature = [0] * len(self.task_to_idx)
+                        task_feature[self.task_to_idx[task]] = 1
+                        tasks.append(task_feature)
+
                 features = np.array(features)
                 histograms = np.array(histograms)
                 descriptors = np.array(descriptors)
+                states = np.array(states)
+                tasks = np.array(tasks)
 
                 # preprocess features
                 if split == "train":
@@ -76,11 +104,11 @@ class BaseFeaturesModel:
 
                 if split == "train":
                     # there may be nan values in histograms
-                    X_train = np.nan_to_num(np.concatenate([features, histograms, descriptors], axis=1))
+                    X_train = np.nan_to_num(np.concatenate([features, histograms, descriptors, states, tasks], axis=1))
                     Y_train = np.array(labels)
                 elif split == "test":
                     # there may be nan values in histograms
-                    X_test = np.nan_to_num(np.concatenate([features, histograms, descriptors], axis=1))
+                    X_test = np.nan_to_num(np.concatenate([features, histograms, descriptors, states, tasks], axis=1))
                     Y_test = np.array(labels)
 
             if len(np.unique(Y_train)) <= 1:
