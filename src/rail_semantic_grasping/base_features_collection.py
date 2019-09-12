@@ -13,26 +13,8 @@ from sensor_msgs.msg import Image, PointCloud2
 from visualization_msgs.msg import Marker, MarkerArray
 from rail_semantic_grasping.srv import ComputeBaseFeatures
 
-# from sklearn import preprocessing
-# from sklearn.metrics import confusion_matrix
-# from sklearn.utils import shuffle
-# from sklearn.externals import joblib
-# from sklearn.model_selection import train_test_split
-# from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
-# from sklearn.neighbors import KNeighborsClassifier
-# from sklearn.linear_model import LogisticRegressionCV
-# from sklearn.tree import DecisionTreeClassifier
-# from sklearn.ensemble import RandomForestClassifier
-# from sklearn.svm import SVC
-# from sklearn.ensemble import GradientBoostingClassifier
-#
-# from pylmnn import LargeMarginNearestNeighbor as LMNN
-
 
 class BaseFeaturesCollection:
-
-    TASKS = ["pour", "scoop", "stab", "cut", "lift", "hammer", "handover"]
-    OBJECTS = ["cup", "spatula", "bowl", "pan"]
 
     def __init__(self):
 
@@ -53,15 +35,6 @@ class BaseFeaturesCollection:
         if not os.path.exists(self.data_dir):
             rospy.loginfo("Labeled data folder {} does not exist. Exiting!".format(self.labeled_data_dir))
             exit()
-
-        # self.data = OrderedDict()
-        # self.semantic_data = OrderedDict()
-        # for task in BaseFeaturesModel.TASKS:
-        #     self.data[task] = OrderedDict()
-        #     self.semantic_data[task] = OrderedDict()
-        #     for object in BaseFeaturesModel.OBJECTS:
-        #         self.data[task][object] = OrderedDict()
-        #         self.semantic_data[task][object] = OrderedDict()
 
         # Set up publishers
         self.markers_pub = rospy.Publisher("~data_collection/markers", MarkerArray, queue_size=10, latch=True)

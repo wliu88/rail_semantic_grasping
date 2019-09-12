@@ -1,6 +1,7 @@
 import numpy as np
 from collections import defaultdict
 import time
+import pickle
 
 from sklearn.utils import shuffle
 from sklearn import preprocessing
@@ -13,6 +14,7 @@ from main.algorithms.WideAndDeepModel.Batcher import Batcher
 from main.Metrics import compute_aps
 from main.algorithms.Logger import Logger
 
+
 class CAGEAlgorithm:
     """
     This class implements the CAGE algorithm
@@ -24,7 +26,7 @@ class CAGEAlgorithm:
 
         self.logger = Logger()
 
-    def run_experiments(self, data, experiments):
+    def run_experiments(self, data, experiments, save_filename):
         """
         This method runs all experiments provided and reports the results
         results is in format (description, ground truth labels, prediction scores), where prediction scores is a
@@ -148,6 +150,11 @@ class CAGEAlgorithm:
             Y_test = Y_test.reshape([len(test_objs), -1])
             result = (description, Y_test.tolist(), Y_probs.tolist())
             results.append(result)
+
+        # Important: This will only save the model of the last experiment
+        if save_filename:
+            with open(save_filename, "wb") as fh:
+                pickle.dump(["wide_and_deep", self.model, batcher, scalar], fh)
 
         self.logger.close()
 

@@ -43,17 +43,17 @@ semantic grasp to include object state.
 ## Data Stats
 
 * 19 ceramic bowl white display contain w_grasp
-* ?
+* 43 small ceramic bowl
 * 0: glass bowl with dots contain w_grasp
 * 20: glass bowl transparent contain w_grasp
 * 17: metal bowl square contain w-grasp
 * 30: metal bowl red contain
 * 21: paper bowl display contain
-* ?
+* 3: white paper bowl
 * 15: plastic bowl purple contain w_grasp
 * 16: plastic bowl china-like contain
 * 31: wood bowl large contain
-* ?
+* 40: shallow wood bowl 
 ---
 * 10: glass bottle ikea grasp
 * 18: glass bottle pasta sause contain grasp
@@ -74,7 +74,7 @@ semantic grasp to include object state.
 * 38: ceramic pan yellow contain grasp
 * 36: ceramic pan small black contain w_grasp grasp
 * 11: stone pan black contain grasp
-* ?
+* 41: small stone pan
 * 12: metal pan silver contain w_grasp grasp
 * 37: metal pan large contain grasp
 ---
@@ -85,9 +85,9 @@ semantic grasp to include object state.
 * 25: metal cup red opening body
 * 27: metal cup green openign body handle
 * 28: paper cup with coffee opening body
-* ?
+* 39: white paper cup 
 * 14: plastic cup transparent opening body
 * 26: plastic cup small blue opening body
 * 24: wood cup with handle opening handle body
-* ?
+* 42: wood cup without handle
 

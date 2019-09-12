@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 from sklearn import preprocessing
 from sklearn.metrics import confusion_matrix
@@ -13,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.ensemble import GradientBoostingClassifier
 
-# from pylmnn import LargeMarginNearestNeighbor as LMNN
+from pylmnn import LargeMarginNearestNeighbor as LMNN
 
 
 class BaseFeaturesModel:
@@ -22,7 +23,7 @@ class BaseFeaturesModel:
         self.classifier = classifier
         assert classifier in ["KNN", "LR", "LMNN"]
 
-    def run_experiments(self, data, experiments):
+    def run_experiments(self, data, experiments, save_filename):
         """
         This method runs all experiments provided and reports the results
         results is in format (description, ground truth labels, prediction scores), where prediction scores is a
@@ -36,7 +37,7 @@ class BaseFeaturesModel:
 
         for experiment in experiments:
             description, train_objs, test_objs = experiment
-            print("\nRun experiment {}".format(description))
+            # print("\nRun experiment {}".format(description))
 
             # normalize features
             scalar = preprocessing.StandardScaler()
@@ -92,15 +93,25 @@ class BaseFeaturesModel:
             test_stats = {}
             for label in np.unique(Y_test):
                 test_stats[label] = np.sum(Y_test == label)
-            print("train stats:", train_stats)
-            print("test stats:", test_stats)
+            # print("train stats:", train_stats)
+            # print("test stats:", test_stats)
 
+            lmnn = None
             if self.classifier == "KNN":
                 model = KNeighborsClassifier(n_neighbors=5)
             elif self.classifier == "LR":
                 # model = LogisticRegressionCV(cv=10, tol=0.0001, class_weight='balanced', random_state=42,
                 #                                   multi_class='ovr', verbose=False)
                 model = LogisticRegression()
+            elif self.classifier == "LMNN":
+                k_train, k_test, n_components, max_iter = 3, 3, X_train.shape[1], 180
+                lmnn = LMNN(n_neighbors=k_train, max_iter=max_iter, n_components=n_components)
+                lmnn.fit(X_train, Y_train)
+                X_train = lmnn.transform(X_train)
+                X_test = lmnn.transform(X_test)
+
+                model = KNeighborsClassifier(n_neighbors=k_test)
+
             model.fit(X_train, Y_train)
             Y_probs = model.predict_proba(X_test)
 
@@ -110,7 +121,15 @@ class BaseFeaturesModel:
             result = (description, Y_test.tolist(), Y_probs.tolist())
             results.append(result)
 
+        # Important: This will only save the model of the last experiment
+        if save_filename:
+            with open(save_filename, "wb") as fh:
+                pickle.dump([self.classifier, model, scalar, lmnn], fh)
+
         return results
+
+
+
 
 
 

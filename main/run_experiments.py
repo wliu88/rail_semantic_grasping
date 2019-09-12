@@ -7,6 +7,20 @@ from main.algorithms.WideAndDeepModel.CAGEAlgorithm import CAGEAlgorithm
 
 from main.Metrics import score_1, score_2, score_3, score_4
 
+
+def run():
+    for test_percentage in [0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
+        print("\nTest percentage:", test_percentage)
+        print("KNN")
+        experiments = data_reader.prepare_data_4(test_percentage=test_percentage)
+        results = base_features_model.run_experiments(data_reader.data, experiments)
+        score_4(results)
+        print("CAGE")
+        experiments = data_reader.prepare_data_4(test_percentage=test_percentage)
+        results = base_features_model.run_experiments(data_reader.data, experiments)
+        score_4(results)
+
+
 if __name__ == "__main__":
     data_reader = DataReader("/home/weiyu/catkin_ws/src/rail_semantic_grasping/data")
     base_features_model = BaseFeaturesModel(classifier="KNN")
@@ -22,9 +36,8 @@ if __name__ == "__main__":
     #
     # results = random_model.run_experiments(data_reader.data, experiments)
 
-
-    # experiments = data_reader.prepare_data_1()
-
     results = cage_algorithm.run_experiments(data_reader.data, experiments)
 
     score_4(results)
+
+

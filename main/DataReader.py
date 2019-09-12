@@ -299,7 +299,7 @@ class DataReader:
 
         return experiments
 
-    def prepare_data_4(self, repeat_num=10, test_percentage=0.7):
+    def prepare_data_4(self, repeat_num=10, test_percentage=0.3):
         """
         This method is used to split data for experiment 4: semantic grasp transfer between
 
@@ -324,8 +324,8 @@ class DataReader:
 
             num_instances = len(instances)
             num_test = int(num_instances * test_percentage)
-            print("Number of instances:", num_instances)
-            print("Number of test instances:", num_test)
+            # print("Number of instances:", num_instances)
+            # print("Number of test instances:", num_test)
             if not num_test:
                 print("Not enough instance to test")
                 experiments.append(("{}".format(test_iter), (), ()))

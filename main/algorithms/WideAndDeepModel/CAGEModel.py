@@ -98,6 +98,8 @@ class ObjectEncoder(nn.Module):
         # 4. combine task with object encodes
         # Important: We can also use a nn here to transform task embeds
 
+        # task_embeds, object_embeds, state_embeds, parts_encodes
+        # torch.cat((task_embeds, parts_encodes), dim=1)
         all_encodes = torch.cat((task_embeds, object_embeds, state_embeds, parts_encodes), dim=1)
 
         return all_encodes
@@ -138,7 +140,7 @@ class CAGEModel(nn.Module):
                  part_encoder_dim, object_encoder_dim, grasp_encoder_dim,
                  part_pooling_method,
                  label_dim,
-                 use_wide=True, use_deep_base_features=False, use_deep_semantic_features=False):
+                 use_wide=False, use_deep_base_features=False, use_deep_semantic_features=True):
         super(CAGEModel, self).__init__()
 
         self.use_wide = use_wide
@@ -188,6 +190,7 @@ class CAGEModel(nn.Module):
                 self.fc2 = nn.Linear(512, 256)  # .cuda()
                 self.fc3 = nn.Linear(256, label_dim, bias=True)  # .cuda()
             else:
+                # task_embedding_dim + object_embedding_dim + state_embedding_dim + 2 * part_encoder_dim
                 self.fc1 = nn.Linear(task_embedding_dim + object_embedding_dim + state_embedding_dim + 2 * part_encoder_dim, 16)  # .cuda()
                 self.fc2 = nn.Linear(16, 8)
                 self.fc3 = nn.Linear(8, label_dim)
@@ -223,8 +226,7 @@ class CAGEModel(nn.Module):
             grasp_materials = grasps[:, 1]
             grasp_materials_encodes = create_one_hot(grasp_materials, self.material_vocab_size)
 
-            # task_encodes, object_encodes, states_encodes, grasp_materials_encodes
-            # torch.cat((grasp_affordances_encodes), dim=1)
+            # task_encodes, object_encodes, states_encodes, grasp_materials_encodes, grasp_affordances_encodes
             wide_inputs = torch.cat((task_encodes, object_encodes, states_encodes, grasp_materials_encodes, grasp_affordances_encodes), dim=1)
             wide_preds = self.wide_fc(wide_inputs)
 

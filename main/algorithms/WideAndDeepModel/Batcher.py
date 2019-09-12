@@ -37,6 +37,7 @@ class Batcher:
         self.label_to_idx = {}
 
         self.base_features_dim = None
+        self.max_num_parts = 0
 
         # class weights for unbalanced data
         self.class_weights = []
@@ -80,12 +81,12 @@ class Batcher:
     def vectorize_data(self):
 
         # first get the maximum number of parts
-        max_num_parts = 0
+        self.max_num_parts = 0
         for features in self.raw_train_features + self.raw_test_features:
             semantic_features = features[0]
             parts = semantic_features[4]
-            if len(parts) > max_num_parts:
-                max_num_parts = len(parts)
+            if len(parts) > self.max_num_parts:
+                self.max_num_parts = len(parts)
 
         # vectorize features of each data point
         for features in [self.raw_train_features, self.raw_test_features]:
@@ -102,8 +103,8 @@ class Batcher:
                 for aff, mat in parts:
                     parts_vec += [self.affordance_to_idx[aff], self.material_to_idx[mat]]
                 # pad
-                if len(parts) < max_num_parts:
-                    parts_vec += [0, 0] * (max_num_parts - len(parts))
+                if len(parts) < self.max_num_parts:
+                    parts_vec += [0, 0] * (self.max_num_parts - len(parts))
 
                 feature_vec = [self.task_to_idx[task], self.object_to_idx[object_class], self.state_to_idx[state],
                                self.affordance_to_idx[grasp[0]], self.material_to_idx[grasp[1]]] + parts_vec
@@ -124,6 +125,31 @@ class Batcher:
         for label in self.label_to_idx:
             self.train_labels[self.raw_train_labels == label] = self.label_to_idx[label]
             self.test_labels[self.raw_test_labels == label] = self.label_to_idx[label]
+
+    def batch_one_object(self, features):
+        vectorize_semantic_features = []
+        vectorize_base_features = []
+
+        for semantic_features, base_features in features:
+            task, object_class, state, grasp, parts = semantic_features
+
+            parts_vec = []
+            for aff, mat in parts:
+                parts_vec += [self.affordance_to_idx[aff], self.material_to_idx[mat]]
+            # pad
+            if len(parts) < self.max_num_parts:
+                parts_vec += [0, 0] * (self.max_num_parts - len(parts))
+
+            feature_vec = [self.task_to_idx[task], self.object_to_idx[object_class], self.state_to_idx[state],
+                           self.affordance_to_idx[grasp[0]], self.material_to_idx[grasp[1]]] + parts_vec
+
+            vectorize_semantic_features.append(feature_vec)
+            vectorize_base_features.append(base_features)
+
+        all_semantic_features = np.array(vectorize_semantic_features)
+        all_base_features = np.array(vectorize_base_features)
+
+        return all_semantic_features, all_base_features
 
     def shuffle_data(self):
         shuffle(self.train_semantic_features, self.train_base_features, self.train_labels)
