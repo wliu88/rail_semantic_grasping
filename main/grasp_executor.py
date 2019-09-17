@@ -6,10 +6,6 @@ import numpy as np
 import pickle
 
 import torch
-
-from rail_semantic_grasping.msg import SemanticObjectList, SemanticObject, SemanticGrasp, BaseFeatures, SemanticPart
-# import DataSpecification
-
 np.random.seed(0)
 
 
