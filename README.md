@@ -1,6 +1,6 @@
 # rail_semantic_grasping_offline
 
-This package contains the the semantic grasping dataset, **_SG14000_** and the code for the **_Semantic Grasp Network_** 
+This package contains the the semantic grasping dataset **_SG14000_**, and the code for the **_Semantic Grasp Network_** 
 in the paper **_CAGE: Context-Aware Grasping Engine_**. 
 
 The code can be used to collect semantic grasp labels from users, and test our proposed **_Semantic Grasp Network_** 
