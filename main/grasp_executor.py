@@ -19,7 +19,7 @@ class GraspExecutor:
 
         self.data_dir = data_dir
         self.unlabeled_data_dir = os.path.join(self.data_dir, "test_execution")
-        # self.base_features_dir = os.path.join(self.data_dir, "base_features")
+        self.base_features_dir = os.path.join(self.data_dir, "test_features")
 
         # Important:
         # each data point has form:
@@ -43,22 +43,26 @@ class GraspExecutor:
 
         for session_dir in session_dirs:
             # find corresponding session folder in base features folder
-            # base_features_session_dir = os.path.join(self.base_features_dir, session_dir.split("/")[-1])
+            base_features_session_dir = os.path.join(self.base_features_dir, session_dir.split("/")[-1])
 
             object_files = glob.glob(os.path.join(session_dir, "*.pkl"))
             # iterate through objects
             for object_file in object_files:
-                # base_features_file = os.path.join(base_features_session_dir, object_file.split("/")[-1])
+                base_features_file = os.path.join(base_features_session_dir, object_file.split("/")[-1])
+
+                print(base_features_file)
 
                 # read base features
-                # base_features_list = load_pickle(base_features_file)
+                base_features_list = load_pickle(base_features_file)
 
                 # read object
                 semantic_objects = load_pickle(object_file)
                 semantic_object = semantic_objects.objects[0]
 
                 # check
-                # assert len(semantic_object.unlabeled_grasps) == len(base_features_list)
+                print(len(semantic_object.grasps))
+                print(len(base_features_list))
+                assert len(semantic_object.grasps) == len(base_features_list)
 
                 # extract features
                 object_class = semantic_object.name
@@ -69,8 +73,8 @@ class GraspExecutor:
                 print("Possible states are hot, cold, empty, filled, has stuff, lid on, lid off")
                 object_state = input("The current object state is ? ")
 
-                # for grasp, base_features in zip(semantic_object.unlabeled_grasps, base_features_list):
-                for grasp in semantic_object.grasps:
+                for grasp, base_features in zip(semantic_object.grasps, base_features_list):
+                # for grasp in semantic_object.grasps:
 
                     # label = base_features.label
                     label = 8
@@ -79,26 +83,26 @@ class GraspExecutor:
                     context = (task, object_class, object_state)
 
                     # extract base features
-                    # features = []
-                    # features.append(base_features.object_spherical_resemblance)
-                    # features.append(base_features.object_cylindrical_resemblance)
-                    # features.extend(base_features.object_elongatedness)
-                    # features.append(base_features.object_volume)
-                    # features.extend(base_features.grasp_relative_position)
-                    # features.append(base_features.object_opening)
-                    # features.append(base_features.grasp_opening_angle)
-                    # features.append(base_features.grasp_opening_distance)
-                    # features.append(base_features.grasp_color_mean)
-                    # features.append(base_features.grasp_color_variance)
-                    # features.append(base_features.grasp_color_entropy)
-                    # histograms = []
-                    # histograms.extend(base_features.grasp_intensity_histogram)
-                    # histograms.extend(base_features.grasp_first_gradient_histogram)
-                    # histograms.extend(base_features.grasp_second_gradient_histogram)
-                    # histograms.extend(base_features.grasp_color_histogram)
-                    # descriptor = base_features.object_esf_descriptor
-                    # extracted_base_features = (features, histograms, descriptor)
-                    extracted_base_features = (None, None, None)
+                    features = []
+                    features.append(base_features.object_spherical_resemblance)
+                    features.append(base_features.object_cylindrical_resemblance)
+                    features.extend(base_features.object_elongatedness)
+                    features.append(base_features.object_volume)
+                    features.extend(base_features.grasp_relative_position)
+                    features.append(base_features.object_opening)
+                    features.append(base_features.grasp_opening_angle)
+                    features.append(base_features.grasp_opening_distance)
+                    features.append(base_features.grasp_color_mean)
+                    features.append(base_features.grasp_color_variance)
+                    features.append(base_features.grasp_color_entropy)
+                    histograms = []
+                    histograms.extend(base_features.grasp_intensity_histogram)
+                    histograms.extend(base_features.grasp_first_gradient_histogram)
+                    histograms.extend(base_features.grasp_second_gradient_histogram)
+                    histograms.extend(base_features.grasp_color_histogram)
+                    descriptor = base_features.object_esf_descriptor
+                    extracted_base_features = (features, histograms, descriptor)
+                    # extracted_base_features = (None, None, None)
 
                     # extract grasp semantic features
                     grasp_affordance = grasp.grasp_part_affordance
@@ -121,27 +125,47 @@ class GraspExecutor:
                                       extracted_grasp_semantic_features,
                                       extracted_object_semantic_parts])
 
-    # def rank_with_base_features_model(self, model, scalar):
-    #     features = []
-    #     histograms = []
-    #     descriptors = []
-    #
-    #     for grasp in self.data:
-    #         extracted_base_features = grasp[2]
-    #         features.append(extracted_base_features[0])
-    #         histograms.append(extracted_base_features[1])
-    #         descriptors.append(extracted_base_features[2])
-    #
-    #     features = np.array(features)
-    #     histograms = np.array(histograms)
-    #     descriptors = np.array(descriptors)
-    #
-    #     features = scalar.transform(features)
-    #     X_test = np.nan_to_num(np.concatenate([features, histograms, descriptors], axis=1))
-    #
-    #     Y_probs = model.predict_proba(X_test)
-    #     pos_preds = Y_probs[:, -1]
-    #     sort_indices = np.argsort(pos_preds)[::-1]
+    def rank_with_base_features_model(self, model_filename):
+
+        with open(model_filename, "rb") as fh:
+            classifier, state_to_idx, task_to_idx, model, scalar, lmnn = pickle.load(fh)
+
+        features = []
+        histograms = []
+        descriptors = []
+        states = []
+        tasks = []
+
+        for grasp in self.data:
+            extracted_base_features = grasp[2]
+            features.append(extracted_base_features[0])
+            histograms.append(extracted_base_features[1])
+            descriptors.append(extracted_base_features[2])
+
+            state = grasp[1][2]
+            state_feature = [0] * len(state_to_idx)
+            state_feature[state_to_idx[state]] = 1
+            states.append(state_feature)
+
+            task = grasp[1][0]
+            task_feature = [0] * len(task_to_idx)
+            task_feature[task_to_idx[task]] = 1
+            tasks.append(task_feature)
+
+        features = np.array(features)
+        histograms = np.array(histograms)
+        descriptors = np.array(descriptors)
+        states = np.array(states)
+        tasks = np.array(tasks)
+
+        features = scalar.transform(features)
+        X_test = np.nan_to_num(np.concatenate([features, histograms, descriptors, states, tasks], axis=1))
+
+        Y_probs = model.predict_proba(X_test)
+        pos_preds = Y_probs[:, -1]
+        sort_indices = np.argsort(pos_preds)[::-1]
+
+        print(sort_indices)
 
     def rank_with_wide_and_deep_model(self, model_filename):
 
@@ -224,7 +248,7 @@ def load_pickle(pickle_file):
 
 if __name__ == "__main__":
     ge = GraspExecutor("/home/weiyu/catkin_ws/src/rail_semantic_grasping/data")
-    ge.rank_with_wide_and_deep_model("/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/exp4_wd.pkl")
-
+    # ge.rank_with_wide_and_deep_model("/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/exp4_wd.pkl")
+    ge.rank_with_base_features_model("/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/robo_exp_vf.pkl")
 
 

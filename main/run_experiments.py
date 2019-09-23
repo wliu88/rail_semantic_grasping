@@ -28,17 +28,17 @@ if __name__ == "__main__":
     random_model = RandomModel()
     cage_algorithm = CAGEAlgorithm()
 
-    experiments = data_reader.prepare_data_4()
+    # experiments = data_reader.prepare_data_4()
     #
     # results = base_features_model.run_experiments(data_reader.data, experiments)
     #
     # results = frequence_table_model.run_experiments(data_reader.data, experiments)
     #
-    results = random_model.run_experiments(data_reader.data, experiments)
+    # results = random_model.run_experiments(data_reader.data, experiments)
 
     # results = cage_algorithm.run_experiments(data_reader.data, experiments)
 
-    score_4(results)
+    # score_4(results)
 
 
     # robot experiment
@@ -46,5 +46,10 @@ if __name__ == "__main__":
     # results = cage_algorithm.run_experiments(data_reader.data, experiments,
     #                                          "/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/robo_exp_wd_large.pkl")
     # score_4(results)
+
+    experiments = data_reader.prepare_data_4(repeat_num=1, test_percentage=0.1)
+    results = base_features_model.run_experiments(data_reader.data, experiments,
+                                                  "/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/robo_exp_vf.pkl")
+    score_4(results)
 
 

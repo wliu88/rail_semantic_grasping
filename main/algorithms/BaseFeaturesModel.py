@@ -152,7 +152,7 @@ class BaseFeaturesModel:
         # Important: This will only save the model of the last experiment
         if save_filename:
             with open(save_filename, "wb") as fh:
-                pickle.dump([self.classifier, model, scalar, lmnn], fh)
+                pickle.dump([self.classifier, self.state_to_idx, self.task_to_idx, model, scalar, lmnn], fh)
 
         return results
 
