@@ -1,0 +1,1 @@
+docker run -it --rm --network host --device /dev/snd --privileged -e ROS_MASTER_URI -e ROS_IP -v /etc/hosts:/etc/hosts kinetic:latest /bin/bash

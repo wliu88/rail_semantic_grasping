@@ -4,10 +4,10 @@ import pickle
 from collections import OrderedDict
 import numpy as np
 
-from rail_semantic_grasping.msg import SemanticObjectList, SemanticObject, SemanticGrasp, BaseFeatures, SemanticPart
 import DataSpecification
 
 np.random.seed(0)
+
 
 class DataReader:
     """
@@ -43,6 +43,9 @@ class DataReader:
             for obj in DataSpecification.OBJECTS:
                 self.grouped_data_indices[task][obj] = OrderedDict()
 
+        #
+        self.unique_id = {}
+
         self.read_data()
 
     def read_data(self):
@@ -71,6 +74,8 @@ class DataReader:
                 # extract features
                 object_class = semantic_object.name
                 object_id = len(self.grouped_data_indices[DataSpecification.TASKS[0]][object_class])
+
+                self.unique_id[(object_class, object_id)] = object_file.split("/")[-1].split(".")[0]
 
                 for grasp, base_features in zip(semantic_object.labeled_grasps, base_features_list):
 
@@ -173,6 +178,8 @@ class DataReader:
         #                 else:
         #                     print("Error: unique labels are {}".format(labels))
         #                     exit()
+
+        print(self.unique_id)
 
     def prepare_data_1(self, test_percentage=0.3, repeat_num=10):
         """
@@ -333,8 +340,10 @@ class DataReader:
             test_instances = list(np.random.choice(instances, num_test, replace=False))
             train_instances = list(set(instances) - set(test_instances))
 
+            print("Test instances:")
             for instance in test_instances:
                 task, object_class, object_id = instance.split(":")
+                print(object_class, self.unique_id[(object_class, int(object_id))], task)
                 object_id = int(object_id)
                 for object_state in self.grouped_data_indices[task][object_class][object_id]:
                     test_objs.append(self.grouped_data_indices[task][object_class][object_id][object_state])
@@ -344,6 +353,52 @@ class DataReader:
                 object_id = int(object_id)
                 for object_state in self.grouped_data_indices[task][object_class][object_id]:
                     train_objs.append(self.grouped_data_indices[task][object_class][object_id][object_state])
+
+            experiments.append(("{}".format(test_iter), train_objs, test_objs))
+
+        for exp in experiments:
+            print(exp)
+
+        return experiments
+
+    def prepare_data_5(self, repeat_num=10, test_percentage=0.3):
+
+        # each experiment is a tuple of (description, train_objs, test_objs)
+        experiments = []
+
+        # repeatedly create split
+        for test_iter in range(repeat_num):
+            print("Preparing split for run {}".format(test_iter))
+            train_objs = []
+            test_objs = []
+
+            instances = []
+            for task in self.grouped_data_indices:
+                for object_class in self.grouped_data_indices[task]:
+                    for object_id in self.grouped_data_indices[task][object_class]:
+                        for object_state in self.grouped_data_indices[task][object_class][object_id]:
+                            instances.append(":".join([task, object_class, str(object_id), object_state]))
+
+            num_instances = len(instances)
+            num_test = int(num_instances * test_percentage)
+            # print("Number of instances:", num_instances)
+            # print("Number of test instances:", num_test)
+            if not num_test:
+                print("Not enough instance to test")
+                experiments.append(("{}".format(test_iter), (), ()))
+
+            test_instances = list(np.random.choice(instances, num_test, replace=False))
+            train_instances = list(set(instances) - set(test_instances))
+
+            for instance in test_instances:
+                task, object_class, object_id, object_state = instance.split(":")
+                object_id = int(object_id)
+                test_objs.append(self.grouped_data_indices[task][object_class][object_id][object_state])
+
+            for instance in train_instances:
+                task, object_class, object_id, object_state = instance.split(":")
+                object_id = int(object_id)
+                train_objs.append(self.grouped_data_indices[task][object_class][object_id][object_state])
 
             experiments.append(("{}".format(test_iter), train_objs, test_objs))
 
