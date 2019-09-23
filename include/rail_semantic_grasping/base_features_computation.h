@@ -34,7 +34,7 @@
 #include <rail_semantic_grasping/SemanticPart.h>
 #include <rail_semantic_grasping/BaseFeatures.h>
 // srv
-#include <rail_semantic_grasping/SegmentSemanticObjects.h>
+//#include <rail_semantic_grasping/SegmentSemanticObjects.h>
 #include <rail_semantic_grasping/ComputeBaseFeatures.h>
 
 // PCL
