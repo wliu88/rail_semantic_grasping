@@ -70,7 +70,7 @@ The steps to compute base features:
 3. run `rosrun rail_semantic_grasping base_features_collection_node.py` to save base features to pickle files
 
 ## Test CAGE and other baselines
-Code for both our models and baselines is in `/main`. Scripts in this folder can all be run directly in python shell. 
+Code for both our **_Semantic Grasp Network_** and baselines is in `/main`. Scripts in this folder can all be run directly in python shell. 
 No `rosrun` is needed. However, make sure you source your catkin space because the code still depends on message types
 define in ros. 
 
