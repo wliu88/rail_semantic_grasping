@@ -8,19 +8,6 @@ from main.algorithms.WideAndDeepModel.CAGEAlgorithm import CAGEAlgorithm
 from main.Metrics import score_1, score_2, score_3, score_4
 
 
-def run():
-    for test_percentage in [0.4, 0.5, 0.6, 0.7, 0.8, 0.9]:
-        print("\nTest percentage:", test_percentage)
-        print("KNN")
-        experiments = data_reader.prepare_data_4(test_percentage=test_percentage)
-        results = base_features_model.run_experiments(data_reader.data, experiments)
-        score_4(results)
-        print("CAGE")
-        experiments = data_reader.prepare_data_4(test_percentage=test_percentage)
-        results = base_features_model.run_experiments(data_reader.data, experiments)
-        score_4(results)
-
-
 if __name__ == "__main__":
     data_reader = DataReader("/home/weiyu/catkin_ws/src/rail_semantic_grasping/data")
     base_features_model = BaseFeaturesModel(classifier="KNN")
@@ -28,28 +15,23 @@ if __name__ == "__main__":
     random_model = RandomModel()
     cage_algorithm = CAGEAlgorithm()
 
+    # To run a test, decide which algorithm and which experiment you want to use.
+    #
+    # e.g., if you want to run experiment 4 with CAGE algorithm, just uncomment the following code:
     # experiments = data_reader.prepare_data_4()
-    #
-    # results = base_features_model.run_experiments(data_reader.data, experiments)
-    #
-    # results = frequence_table_model.run_experiments(data_reader.data, experiments)
-    #
-    # results = random_model.run_experiments(data_reader.data, experiments)
-
     # results = cage_algorithm.run_experiments(data_reader.data, experiments)
-
     # score_4(results)
 
-
-    # robot experiment
+    # To save model for robot experiments, just provide the file you want to save the model to.
+    #
+    # e.g.,
     # experiments = data_reader.prepare_data_4(repeat_num=1, test_percentage=0.1)
-    # results = cage_algorithm.run_experiments(data_reader.data, experiments,
-    #                                          "/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/robo_exp_wd_large.pkl")
+    # results = cage_algorithm.run_experiments(data_reader.data, experiments, "/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/robo_exp_wd_large.pkl")
     # score_4(results)
-
-    experiments = data_reader.prepare_data_4(repeat_num=1, test_percentage=0.1)
-    results = base_features_model.run_experiments(data_reader.data, experiments,
-                                                  "/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/robo_exp_vf.pkl")
-    score_4(results)
+    #
+    # e.g.,
+    # experiments = data_reader.prepare_data_4(repeat_num=1, test_percentage=0.1)
+    # results = base_features_model.run_experiments(data_reader.data, experiments, "/home/weiyu/catkin_ws/src/rail_semantic_grasping/models/robo_exp_vf.pkl")
+    # score_4(results)
 
 

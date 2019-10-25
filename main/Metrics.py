@@ -297,6 +297,7 @@ def score_4(results):
     print("Hit@3: {}".format(np.average(hit_3_scores)))
     print("Hits@5: {}".format(np.average(hits_5_scores)))
 
+
 def score_embedding_3(results):
     # this is used to group raw scores based on object classes and tasks
     raw_scores = OrderedDict()

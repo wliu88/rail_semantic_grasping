@@ -18,8 +18,6 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
 # Clone the repo, initialize & build the workspaces, and then update the
 # entrypoint into the container to source the right workspace
 WORKDIR $HOME/catkin_ws
-# COPY ./scripts/rosinstall/active.rosinstall $HOME/ros/active/src/.rosinstall
-# COPY ./scripts/rosinstall/stable.rosinstall $HOME/ros/stable/src/.rosinstall
 
 RUN . /opt/ros/kinetic/setup.sh && \
     cd $HOME/catkin_ws/src && \
